@@ -36,5 +36,5 @@ class NetFactory:
     def get_net(self, name):
         return self._nets.get(name)
     
-    def get_all_nets(self):
+    def get_all_nets(self) -> list[Net]:
         return list(self._nets.values())

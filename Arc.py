@@ -1,5 +1,10 @@
 class Lut:
     def __init__(self, lut_group):
+        if lut_group is None:
+            self.index_1 = [1e8]
+            self.index_2 = [1e8]
+            self.lut_values = [[0.0]]
+            return
         self.index_1 = lut_group.get_array('index_1')[0]
         self.index_2 = lut_group.get_array('index_2')[0]
         self.lut_values = lut_group.get_array('values')
@@ -29,9 +34,9 @@ class Arc:
         self.delay = 0.0
 
         # 双向连接
-        from_pin.arcs.append(self)
-        to_pin.arcs.append(self)
-    
+        from_pin.fanout.append(self)
+        to_pin.fanin.append(self)
+
     def __repr__(self):
         return f"Arc({self.from_pin.name} -> {self.to_pin.name})"
 
@@ -57,7 +62,7 @@ class ArcFactory:
     def __init__(self):
         self._arcs = {}
     
-    def create_arc(self, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition):
+    def create_arc(self, from_pin, to_pin, cell_rise: Lut = None, cell_fall: Lut = None, rise_transition: Lut = None, fall_transition: Lut = None):
         arc_key = f"{from_pin.name}:{to_pin.name}"
         
         if arc_key in self._arcs:

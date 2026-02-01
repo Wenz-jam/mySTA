@@ -32,6 +32,13 @@ class CircuitBuilder:
         
         # 步骤4: 分三步为每个Cell创建Pin、连接Net、创建Arc
         self._process_cells()
+
+        for net in self.net_factory.get_all_nets():
+            from_pin = net.source
+            if from_pin is None:
+                continue
+            for to_pin in net.sinks:
+                self.arc_factory.create_arc(from_pin, to_pin)
         
         return self
     

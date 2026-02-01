@@ -23,8 +23,8 @@ def dfs(circuit : CircuitBuilder, visit):
         elif pin.type == EnumPinType.INPUT:
             # assert pin.arcs is not None
             # 时序路径可以到触发器停止
-            if len(pin.arcs) > 0:
-                for arc in pin.arcs:
+            if len(pin.fanout) > 0:
+                for arc in pin.fanout:
                     to_pin = arc.to_pin
                     assert to_pin not in stack
                     stack.append(to_pin)
@@ -45,8 +45,8 @@ if __name__ == "__main__":
     # outputs = [...]  # 主输出列表
     # instances = {...}  # 实例字典
     verilog_file = "/home/wenz/git/mySTA/example/simple.v"
-    verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
-    verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
+    # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
+    # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
     top_module = "top"
     parser = VerilogParser()
     module = parser.parse_file(verilog_file)
@@ -94,8 +94,10 @@ if __name__ == "__main__":
         if pin.type in [EnumPinType.INPUT, EnumPinType.PRIMARY_OUTPUT]:
             G.add_edge(pin.net.source.name, pin.name, color = 'green')
         elif pin.type in [EnumPinType.OUTPUT]:
-            for arc in pin.arcs:
+            for arc in pin.fanin:
                 G.add_edge(arc.from_pin.name, arc.to_pin.name, color = 'red')
+    dfs(circuit, visit)
+    G.write("circuit_graph.dot")
     
     # update capacity
     # for net in all_nets:
@@ -104,39 +106,6 @@ if __name__ == "__main__":
     #     assert isinstance(source, Pin)
     #     assert isinstance(sinks, list)
     #     source.capacitance = sum(sink.capacitance for sink in sinks)
-
-    path = []
-    def pba(pin: Pin):
-        if pin.type == EnumPinType.PRIMARY_INPUT:
-            for sink in pin.net.sinks:
-                assert isinstance(sink, Pin)
-                sink.delay += pin.delay
-                sink.slew = pin.slew
-        if pin.type == EnumPinType.OUTPUT:
-            for sink in pin.net.sinks:
-                assert isinstance(sink, Pin)
-                sink.delay += pin.delay
-                sink.slew = pin.slew
-        if pin.type == EnumPinType.INPUT:
-            if len(pin.arcs) == 0:
-                print(f"Ending at FF/Input Pin: {pin.name}, Delay: {pin.delay}, Slew: {pin.slew}")
-                return
-            for arc in pin.arcs:
-                assert isinstance(arc, Arc)
-                to_pin = arc.to_pin
-                assert isinstance(to_pin, Pin)
-                # 计算延迟和slew
-                arc_delay = arc.get_delay(pin.slew, to_pin.capacitance)
-                arc_slew = arc.get_slew(pin.slew, to_pin.capacitance)
-                # 更新延迟和slew
-                to_pin.delay += max(pin.delay + arc_delay , to_pin.delay)
-                to_pin.slew = arc_slew
-        if pin.type == EnumPinType.PRIMARY_OUTPUT:
-            print(f"Primary Output Pin: {pin.name}, Delay: {pin.delay}, Slew: {pin.slew}")
-            pass
-
-    dfs(circuit, pba)
-    print(sorted([pin.slew for pin in circuit.pin_factory.get_all_pins()])[-10:])
 
     # G.write('circuit_graph.dot')
     # # 生成详细电路图

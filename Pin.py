@@ -18,7 +18,10 @@ class Pin:
         self.type = pin_type  # 避免与Python的type关键字冲突
         self.capacitance = 0.0
         self.slew = 0.0
-        self.arcs = []
+        self.delay = 0.0
+        self.arcs = None # decrapated
+        self.fanin = []
+        self.fanout = []
     
     def __repr__(self):
         return f"Pin({self.name}, type={self.type})"
