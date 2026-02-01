@@ -2,34 +2,40 @@ from read_liberty import *
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
 from Pin import EnumPinType, Pin
+from Arc import Arc
 
 # 主程序
 import pygraphviz as pgv
 
-def bfs(circuit : CircuitBuilder, visit):
-    visited = set()
-    queue = [pin for pin in circuit.primary_inputs.values()]
-    while queue:
-        pin = queue.pop(0)
-        if pin in visited:
-            continue
-        visited.add(pin)
-        visit(pin)
+def dfs(circuit : CircuitBuilder, visit):
+    stack = [pin for pin in circuit.primary_inputs.values()]
+    stack_pointer = len(stack) - 1
+    while stack:
+        assert stack_pointer >= 0
+        pin = stack.pop(stack_pointer)
+        stack_pointer -= 1
         if pin.type == EnumPinType.PRIMARY_INPUT:
             assert pin.net is not None
             for sink in pin.net.sinks:
-                queue.append(sink)
+                if(sink not in stack):
+                    stack.append(sink)
+                    stack_pointer += 1
         elif pin.type == EnumPinType.INPUT:
-            assert pin.arcs is not None
-            for arc in pin.arcs:
-                to_pin = arc.to_pin
-                if(to_pin not in visited and to_pin not in queue):
-                    queue.append(to_pin)
+            # assert pin.arcs is not None
+            # 时序路径可以到触发器停止
+            if len(pin.arcs) > 0:
+                for arc in pin.arcs:
+                    to_pin = arc.to_pin
+                    assert to_pin not in stack
+                    stack.append(to_pin)
+                    stack_pointer += 1
         elif pin.type == EnumPinType.OUTPUT:
             assert pin.net is not None
             for sink in pin.net.sinks:
-                if(sink not in visited and sink not in queue):
-                    queue.append(sink)
+                assert sink not in stack
+                stack.append(sink)
+                stack_pointer += 1
+        visit(pin)
 
 if __name__ == "__main__":
     # 假设已经从文件读取了这些数据
@@ -40,6 +46,7 @@ if __name__ == "__main__":
     # instances = {...}  # 实例字典
     verilog_file = "/home/wenz/git/mySTA/example/simple.v"
     verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
+    verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
     top_module = "top"
     parser = VerilogParser()
     module = parser.parse_file(verilog_file)
@@ -89,11 +96,49 @@ if __name__ == "__main__":
         elif pin.type in [EnumPinType.OUTPUT]:
             for arc in pin.arcs:
                 G.add_edge(arc.from_pin.name, arc.to_pin.name, color = 'red')
-        
     
-    bfs(circuit, visit)
-    
-    G.write('circuit_graph.dot')
+    # update capacity
+    # for net in all_nets:
+    #     source = net.source
+    #     sinks = net.sinks
+    #     assert isinstance(source, Pin)
+    #     assert isinstance(sinks, list)
+    #     source.capacitance = sum(sink.capacitance for sink in sinks)
+
+    path = []
+    def pba(pin: Pin):
+        if pin.type == EnumPinType.PRIMARY_INPUT:
+            for sink in pin.net.sinks:
+                assert isinstance(sink, Pin)
+                sink.delay += pin.delay
+                sink.slew = pin.slew
+        if pin.type == EnumPinType.OUTPUT:
+            for sink in pin.net.sinks:
+                assert isinstance(sink, Pin)
+                sink.delay += pin.delay
+                sink.slew = pin.slew
+        if pin.type == EnumPinType.INPUT:
+            if len(pin.arcs) == 0:
+                print(f"Ending at FF/Input Pin: {pin.name}, Delay: {pin.delay}, Slew: {pin.slew}")
+                return
+            for arc in pin.arcs:
+                assert isinstance(arc, Arc)
+                to_pin = arc.to_pin
+                assert isinstance(to_pin, Pin)
+                # 计算延迟和slew
+                arc_delay = arc.get_delay(pin.slew, to_pin.capacitance)
+                arc_slew = arc.get_slew(pin.slew, to_pin.capacitance)
+                # 更新延迟和slew
+                to_pin.delay += max(pin.delay + arc_delay , to_pin.delay)
+                to_pin.slew = arc_slew
+        if pin.type == EnumPinType.PRIMARY_OUTPUT:
+            print(f"Primary Output Pin: {pin.name}, Delay: {pin.delay}, Slew: {pin.slew}")
+            pass
+
+    dfs(circuit, pba)
+    print(sorted([pin.slew for pin in circuit.pin_factory.get_all_pins()])[-10:])
+
+    # G.write('circuit_graph.dot')
     # # 生成详细电路图
     # print("\nGenerating detailed circuit diagram...")
     # circuit.visualize('circuit_detailed.png')

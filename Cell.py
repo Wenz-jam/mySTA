@@ -1,3 +1,4 @@
+from Arc import Lut
 from read_liberty import select_cell, library
 from Pin import EnumPinType, to_enum
 class Cell:
@@ -18,6 +19,9 @@ class Cell:
             pin_type = to_enum.get(direction, None)
             
             pin = pin_factory.create_pin(pin_name, pin_type)
+            capacitance = pin_info.get_attribute('capacitance')
+            if capacitance:
+                pin.capacitance = float(capacitance)
             self.pins[port_name] = pin
     
     def connect_pins_to_nets(self, net_factory):
@@ -42,4 +46,8 @@ class Cell:
                     from_pin = self.pins.get(from_port_name)
                     
                     if from_pin:
-                        arc_factory.create_arc(from_pin, to_pin)
+                        cell_rise = Lut(timing_info.get_group('cell_rise'))
+                        cell_fall = Lut(timing_info.get_group('cell_fall'))
+                        rise_transition = Lut(timing_info.get_group('rise_transition'))
+                        fall_transition = Lut(timing_info.get_group('fall_transition'))
+                        arc_factory.create_arc(from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
