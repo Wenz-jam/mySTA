@@ -1,11 +1,11 @@
-from Arc import Lut
 from read_liberty import select_cell, library
-from Pin import EnumPinType, to_enum
+from Arc import Lut, EnumTimingSense
+from Pin import EnumPinType
 class Cell:
     def __init__(self, name, instance, library):
-        self.name = name
+        self.name :str = name
         self.instance = instance
-        self.module = instance['module']
+        self.module :str = instance['module']
         self.cell = select_cell(library, self.module)
         self.port_mapping = dict(instance['portlist'])  # cell_port -> net_name
         self.pins = {}  # port_name -> Pin对象
@@ -16,7 +16,7 @@ class Cell:
             port_name = pin_info.args[0]
             pin_name = f"{self.name}/{port_name}"
             direction = pin_info.get_attribute('direction')
-            pin_type = to_enum.get(direction, None)
+            pin_type = EnumPinType.to_enum(direction)
             
             pin = pin_factory.create_pin(pin_name, pin_type)
             capacitance = pin_info.get_attribute('capacitance')
@@ -46,8 +46,9 @@ class Cell:
                     from_pin = self.pins.get(from_port_name)
                     
                     if from_pin:
-                        cell_rise = Lut(timing_info.get_group('cell_rise'))
-                        cell_fall = Lut(timing_info.get_group('cell_fall'))
-                        rise_transition = Lut(timing_info.get_group('rise_transition'))
-                        fall_transition = Lut(timing_info.get_group('fall_transition'))
-                        arc_factory.create_arc(from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
+                        timing_sense = timing_info.get_attribute('timing_sense')
+                        cell_rise = timing_info.get_group('cell_rise')
+                        cell_fall = timing_info.get_group('cell_fall')
+                        rise_transition = timing_info.get_group('rise_transition')
+                        fall_transition = timing_info.get_group('fall_transition')
+                        arc_factory.create_arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)

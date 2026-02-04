@@ -5,11 +5,31 @@ class EnumPinType(Enum):
     PRIMARY_OUTPUT = 2
     INPUT = 3
     OUTPUT = 4
+    
+    @staticmethod
+    def to_enum(value: str):
+        mapping = {
+            'input': EnumPinType.INPUT,
+            'output': EnumPinType.OUTPUT,
+            'primary_input': EnumPinType.PRIMARY_INPUT,
+            'primary_output': EnumPinType.PRIMARY_OUTPUT
+        }
+        assert value.lower() in mapping, f"Unknown pin type: {value}"
+        return mapping.get(value.lower())
 
-to_enum = {
-        'input': EnumPinType.INPUT,
-        'output': EnumPinType.OUTPUT
-}
+class EnumClockEdge(Enum):
+    FALLING = 0
+    RISING = 1
+    UNKNOWN = 2
+    
+    @staticmethod
+    def to_enum(value: str):
+        mapping = {
+            'rising': EnumClockEdge.RISING,
+            'falling': EnumClockEdge.FALLING
+        }
+        assert value.lower() in mapping, f"Unknown clock edge: {value}"
+        return mapping.get(value.lower())
 
 class Pin:
     def __init__(self, name, pin_type=None):
@@ -17,8 +37,7 @@ class Pin:
         self.net = None
         self.type = pin_type  # 避免与Python的type关键字冲突
         self.capacitance = 0.0
-        self.slew = 0.0
-        self.delay = 0.0
+        self.slew = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
         self.arcs = None # decrapated
         self.fanin = []
         self.fanout = []

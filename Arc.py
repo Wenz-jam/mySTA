@@ -1,3 +1,7 @@
+from enum import Enum
+from Interpolator import RegularGridInterpolator
+from Pin import EnumClockEdge
+
 class Lut:
     def __init__(self, lut_group):
         if lut_group is None:
@@ -8,8 +12,13 @@ class Lut:
         self.index_1 = lut_group.get_array('index_1')[0]
         self.index_2 = lut_group.get_array('index_2')[0]
         self.lut_values = lut_group.get_array('values')
+        self.interpolator = RegularGridInterpolator(
+            lut_group.get_array('index_1')[0], 
+            lut_group.get_array('index_2')[0],
+            lut_group.get_array('values'))
     
     def get_value(self, x, y):
+        return self.interpolator.interpolate(x, y)
         i = 0
         for idx, index in enumerate(self.index_1):
             if x <= index:
@@ -22,16 +31,57 @@ class Lut:
                 break
         return self.lut_values[i][j]
 
+class ZeroLut(Lut):
+    def __init__(self):
+        super().__init__(None)
+    
+    def get_value(self, x, y):
+        return 0.0
+
+class PassThroughLut(Lut):
+    def __init__(self):
+        super().__init__(None)
+
+    def get_value(self, x, y):
+        return x
+
+class EnumTimingSense(Enum):
+    POS_UNATE = 1
+    NEG_UNATE = 2
+    NON_UNATE = 3
+
+    @staticmethod
+    def to_enum(value: str):
+        mapping = {
+            'positive_unate': EnumTimingSense.POS_UNATE,
+            'negative_unate': EnumTimingSense.NEG_UNATE,
+            'non_unate': EnumTimingSense.NON_UNATE
+        }
+        assert value.lower() in mapping, f"Unknown arc type: {value}"
+        return mapping.get(value.lower())
+
+
+
+# Arc.delay以及Arc.slew在C++实现中使用引用的方式与to_pin中的delay, slew绑定, 同步发生变化
 class Arc:
-    def __init__(self, from_pin, to_pin, cell_rise: Lut, cell_fall: Lut, rise_transition: Lut, fall_transition: Lut):
+    from Pin import Pin
+    def __init__(self,
+                timing_sense: EnumTimingSense,
+                from_pin: Pin,
+                to_pin: Pin,
+                cell_rise: Lut,
+                cell_fall: Lut,
+                rise_transition: Lut,
+                fall_transition: Lut):
+        self.timing_sense = timing_sense
         self.from_pin = from_pin
         self.to_pin = to_pin
         self.cell_rise = cell_rise
         self.cell_fall = cell_fall
         self.rise_transition = rise_transition
         self.fall_transition = fall_transition
-        self.slew = 0.0
-        self.delay = 0.0
+        self.slew = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
+        self.delay = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
 
         # 双向连接
         from_pin.fanout.append(self)
@@ -40,17 +90,58 @@ class Arc:
     def __repr__(self):
         return f"Arc({self.from_pin.name} -> {self.to_pin.name})"
 
-    def get_delay(self, input_slew, output_capacitance):
-        # 简单的延迟计算模型
-        self.delay = max(self.cell_rise.get_value(input_slew, output_capacitance),
-                            self.cell_fall.get_value(input_slew, output_capacitance))
-        return self.delay
+    def get_delay(self,clock_edge, input_slew, output_capacitance):
+        assert clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
+        if clock_edge == EnumClockEdge.RISING:
+            return self.cell_rise.get_value(input_slew, output_capacitance)
+        else:
+            return self.cell_fall.get_value(input_slew, output_capacitance)
 
-    def get_slew(self, input_slew, output_capacitance):
-        # 简单的slew计算模型
-        self.slew = max(self.rise_transition.get_value(input_slew, output_capacitance),
-                            self.fall_transition.get_value(input_slew, output_capacitance))
-        return self.slew
+    def get_slew(self,clock_edge, input_slew, output_capacitance):
+        assert clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
+        if clock_edge == EnumClockEdge.RISING:
+            return self.rise_transition.get_value(input_slew, output_capacitance)
+        else:
+            return self.fall_transition.get_value(input_slew, output_capacitance)
+
+    def get_to_pin_clock_edge(self, clock_edge):
+        if self.timing_sense == EnumTimingSense.POS_UNATE:
+            return clock_edge
+        elif self.timing_sense == EnumTimingSense.NEG_UNATE:
+            return EnumClockEdge.FALLING if clock_edge == EnumClockEdge.RISING else EnumClockEdge.RISING
+        else:
+            return EnumClockEdge.UNKNOWN
+
+    def calc_delay(self, clock_edge):
+        capacitance = self.to_pin.capacitance
+        input_slew = self.from_pin.slew[clock_edge]
+        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
+        if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
+            self.delay[EnumClockEdge.RISING] = max(self.delay[EnumClockEdge.RISING], self.get_delay(EnumClockEdge.RISING, input_slew, capacitance))
+            self.delay[EnumClockEdge.FALLING] = max(self.delay[EnumClockEdge.FALLING], self.get_delay(EnumClockEdge.FALLING, input_slew, capacitance))
+        else:
+            assert to_pin_clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
+            delay = self.get_delay(to_pin_clock_edge, input_slew, capacitance)
+            self.delay[to_pin_clock_edge] = delay
+
+    def propagate_slew(self, clock_edge):
+        capacitance = self.to_pin.capacitance
+        input_slew = self.from_pin.slew[clock_edge]
+        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
+        if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
+            # 前级的边沿导致后级的上升沿
+            self.slew[EnumClockEdge.RISING] = max(self.slew[EnumClockEdge.RISING], self.get_slew(EnumClockEdge.RISING, input_slew, capacitance))
+            # 前级的边沿导致后级的下降沿
+            self.slew[EnumClockEdge.FALLING] = max(self.slew[EnumClockEdge.FALLING], self.get_slew(EnumClockEdge.FALLING, input_slew, capacitance))
+            # 同步更新to_pin的slew
+            self.to_pin.slew[EnumClockEdge.RISING] = max(self.to_pin.slew[EnumClockEdge.RISING], self.slew[EnumClockEdge.RISING])
+            self.to_pin.slew[EnumClockEdge.FALLING] = max(self.to_pin.slew[EnumClockEdge.FALLING], self.slew[EnumClockEdge.FALLING])
+        else:
+            assert to_pin_clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
+            slew = self.get_slew(to_pin_clock_edge, input_slew, capacitance)
+            self.slew[to_pin_clock_edge] = slew
+            self.to_pin.slew[to_pin_clock_edge] = max(self.to_pin.slew[to_pin_clock_edge], slew)
+
     
     @property
     def key(self):
@@ -62,13 +153,26 @@ class ArcFactory:
     def __init__(self):
         self._arcs = {}
     
-    def create_arc(self, from_pin, to_pin, cell_rise: Lut = None, cell_fall: Lut = None, rise_transition: Lut = None, fall_transition: Lut = None):
+    def create_arc(self,
+                   timing_sense,
+                   from_pin,
+                   to_pin,
+                   cell_rise,
+                   cell_fall,
+                   rise_transition,
+                   fall_transition):
         arc_key = f"{from_pin.name}:{to_pin.name}"
         
         if arc_key in self._arcs:
             return self._arcs[arc_key]
         
-        arc = Arc(from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
+        timing_sense = EnumTimingSense.to_enum(timing_sense) if not isinstance(timing_sense, EnumTimingSense) else timing_sense
+        cell_rise = Lut(cell_rise) if not isinstance(cell_rise, Lut) else cell_rise
+        cell_fall = Lut(cell_fall) if not isinstance(cell_fall, Lut) else cell_fall
+        rise_transition = Lut(rise_transition) if not isinstance(rise_transition, Lut) else rise_transition
+        fall_transition = Lut(fall_transition) if not isinstance(fall_transition, Lut) else fall_transition
+
+        arc = Arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
         self._arcs[arc_key] = arc
         return arc
     

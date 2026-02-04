@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from Arc import ArcFactory
+from Arc import ArcFactory, PassThroughLut, EnumTimingSense, ZeroLut
 from Cell import Cell
 from Net import NetFactory
 from Pin import EnumPinType, PinFactory
@@ -13,7 +13,9 @@ class CircuitBuilder:
         self.pin_factory = PinFactory()
         self.net_factory = NetFactory()
         self.arc_factory = ArcFactory()
-        self.cells = []
+        self.cells: list[Cell] = []
+        self.zeroLut = ZeroLut()
+        self.passThroughLut = PassThroughLut()
         
         # 存储主输入输出
         self.primary_inputs = {}
@@ -38,7 +40,8 @@ class CircuitBuilder:
             if from_pin is None:
                 continue
             for to_pin in net.sinks:
-                self.arc_factory.create_arc(from_pin, to_pin)
+                # 目前认为互联线直通, 无负载无延迟
+                self.arc_factory.create_arc(EnumTimingSense.POS_UNATE, from_pin, to_pin, self.zeroLut, self.zeroLut, self.passThroughLut, self.passThroughLut)
         
         return self
     
