@@ -12,7 +12,7 @@ def parse_timing_report(file_content):
         return []
     sections = re.split(r'Startpoint:', file_content) # 表单会从Startpoint开始
     for section in sections:
-        sheets = re.split(r'---------------------------------------------------------------', section)
+        sheets = re.split(r'-{60,}', section)
         if len(sheets) >= 3:
             # 第一块是表头
             # 第二块存储了Point Incr Path的具体信息
@@ -24,6 +24,8 @@ def parse_timing_report(file_content):
                 line = line.strip()
                 if len(line) == 0:
                     continue
+                if re.findall(r"\)\s{0,3}\d", line):
+                    line = re.sub(r"\)\s{0,3}(\d)", r")    \1", line)
                 l, r = re.split(r'\s{4,}', line)
                 ls = re.split(r"\((.*)\)", l)
                 name = ls[0].strip()
@@ -65,7 +67,7 @@ def get_all_paths(files):
             ret.append({"el": el, "type": path_type, "data": path})
     return ret
 
-base_addr = "/home/wenz/git/mySTA/example/report"
+base_addr = "/home/wenz/git/mySTA/report/simple"
 import glob
 files = glob.glob(f"{base_addr}/timing*.rpt")
 all_paths = get_all_paths(files)
@@ -96,26 +98,26 @@ def find_ref_pin_edge(ref_path, pin_name):
         return EnumClockEdge.RISING if ref_pin['edge'] == "r" else EnumClockEdge.FALLING
     return None
 
-for dut_path in dut_all_paths:
-    dut_pin_has_delay = [pin_name for pin_name, _, delay in dut_path if delay > 0]
-    # inp,_,_ = dut_path[0]
-    # if inp not in dut_pin_has_delay:
-    #     dut_pin_has_delay.insert(0, inp)
-    for ref_path in ref_path_max:
-        ref_pin_names = get_path_all_pin_names(ref_path['data'])
-        if all(pin_name in ref_pin_names for pin_name in dut_pin_has_delay):
-            print(f"Found matching path for DUT in ref max path: {ref_path['el']} {ref_path['type']}")
-            for dut_name, dut_rise_fall, dut_incr in dut_path:
-                if dut_incr <= 0:
-                    continue
-                ref_pin = find_ref_pin(ref_path['data'], dut_name)
-                ref_clock_edge = find_ref_pin_edge(ref_path['data'], dut_name)
-                ref_incr = find_ref_pin_incr(ref_path['data'], dut_name)
-                is_edge_match = f"{ref_clock_edge == dut_rise_fall}"
-                print(f"{dut_name:<5} edge match:{is_edge_match:<5}",
-                      f"DIFF: {dut_incr - ref_incr:.10f} ns, {(ref_incr - dut_incr) / ref_incr * 100:.4f}%")
-                    #   DUT delay: {dut_delay:.10f} ns, REF delay: {ref_delay:.10f} ns, DIFF: {dut_delay - ref_delay:.10f} ns, ")
-            break
+# for dut_path in dut_all_paths:
+#     dut_pin_has_delay = [pin_name for pin_name, _, delay in dut_path if delay > 0]
+#     # inp,_,_ = dut_path[0]
+#     # if inp not in dut_pin_has_delay:
+#     #     dut_pin_has_delay.insert(0, inp)
+#     for ref_path in ref_path_max:
+#         ref_pin_names = get_path_all_pin_names(ref_path['data'])
+#         if all(pin_name in ref_pin_names for pin_name in dut_pin_has_delay):
+#             print(f"Found matching path for DUT in ref max path: {ref_path['el']} {ref_path['type']}")
+#             for dut_name, dut_rise_fall, dut_incr in dut_path:
+#                 if dut_incr <= 0:
+#                     continue
+#                 ref_pin = find_ref_pin(ref_path['data'], dut_name)
+#                 ref_clock_edge = find_ref_pin_edge(ref_path['data'], dut_name)
+#                 ref_incr = find_ref_pin_incr(ref_path['data'], dut_name)
+#                 is_edge_match = f"{ref_clock_edge == dut_rise_fall}"
+#                 print(f"{dut_name:<5} edge match:{is_edge_match:<5}",
+#                       f"DIFF: {dut_incr - ref_incr:.10f} ns, {(ref_incr - dut_incr) / ref_incr * 100:.4f}%")
+#                     #   DUT delay: {dut_delay:.10f} ns, REF delay: {ref_delay:.10f} ns, DIFF: {dut_delay - ref_delay:.10f} ns, ")
+#             break
 
 # for p in all_paths:
 #     el, path_type, path = p['el'], p['type'], p['data']
@@ -125,3 +127,13 @@ for dut_path in dut_all_paths:
 #         incr = float(row['incr'])
 #         print(f"{row['name']:<20} {row['edge']:<3} incr: {incr:.10f} ns, delay: {row['delay']}")
 #     print("-"*40)
+
+
+# for p in all_paths:
+#     el, path_type, path = p['el'], p['type'], p['data']
+#     for row in path:
+#         if "external delay" in row['name'] and float(row['incr']) == 0.0:
+#             continue
+#         incr = float(row['incr'])
+#         print(f"{el},{path_type},{row['name']},{row['edge']},{incr}") 
+        

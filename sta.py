@@ -1,4 +1,4 @@
-from read_liberty import *
+from read_liberty import libs as library
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
 from Pin import EnumClockEdge, EnumPinType, Pin
@@ -35,8 +35,8 @@ def get_all_paths(start_pin: Pin, path):
 
 
 
-def main():
-    verilog_file = "/home/wenz/git/mySTA/example/simple.v"
+def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
+    # verilog_file = "/home/wenz/git/mySTA/example/simple.v"
     # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
     # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
     top_module = "top"
@@ -62,7 +62,7 @@ def main():
     all_nets = circuit.net_factory.get_all_nets()
     all_arcs = circuit.arc_factory.get_all_arcs()
     
-    print(f"\nReady for PBA analysis with {len(all_pins)} pins, {len(all_nets)} nets, {len(all_arcs)} arcs")
+    # print(f"\nReady for PBA analysis with {len(all_pins)} pins, {len(all_nets)} nets, {len(all_arcs)} arcs")
 
     # 遍历所有输出Pin, 汇总其负载电容
     for pin in circuit.pin_factory.get_all_pins():
@@ -130,6 +130,12 @@ def main():
         return all_timing_paths
     
     # 输出路径
+    # worst_path = max(all_timing_paths, key=lambda path: sum(delay for _, _, delay in path))
+    # total_delay = 0
+    # for name, clock_edge_from_rise, delay in worst_path:
+    #     total_delay += delay
+    #     print(f"{name:<15} {clock_edge_from_rise.name:<8} delay: {delay:.10f} ns, total_delay: {total_delay:.10f} ns")
+    # return
     for timing_path_bad in all_timing_paths:
         print("Timing Path:")
         total_delay = 0

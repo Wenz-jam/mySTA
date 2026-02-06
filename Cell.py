@@ -1,4 +1,4 @@
-from read_liberty import select_cell, library
+from read_liberty import select_cell
 from Arc import Lut, EnumTimingSense
 from Pin import EnumPinType
 class Cell:

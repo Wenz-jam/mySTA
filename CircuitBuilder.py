@@ -162,9 +162,9 @@ def build_circuit(library, wires, inputs, outputs, instances):
             print(f"  - {error}")
     
     # 打印统计信息
-    stats = circuit.get_statistics()
-    print("\nCircuit Statistics:")
-    for key, value in stats.items():
-        print(f"  {key}: {value}")
+    # stats = circuit.get_statistics()
+    # print("\nCircuit Statistics:")
+    # for key, value in stats.items():
+    #     print(f"  {key}: {value}")
     
     return circuit
