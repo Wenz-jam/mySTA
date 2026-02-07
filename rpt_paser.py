@@ -17,12 +17,14 @@ def parse_timing_report(file_content):
             # 第一块是表头
             # 第二块存储了Point Incr Path的具体信息
             sheet = sheets[1]
-            sheet = re.sub(r"\n\s{5,}", " ", sheet) # 合并换行显示的表格内容
+            # sheet = re.sub(r"\n\s{5,}", " ", sheet) # 合并换行显示的表格内容
             sheet = re.sub(r"(\s&)", "", sheet) # 删除标记关键路径的"&""
             data = []
             for line in sheet.splitlines():
                 line = line.strip()
                 if len(line) == 0:
+                    continue
+                if not re.findall(r"[rf]\s*$", line):
                     continue
                 if re.findall(r"\)\s{0,3}\d", line):
                     line = re.sub(r"\)\s{0,3}(\d)", r")    \1", line)
@@ -31,13 +33,26 @@ def parse_timing_report(file_content):
                 name = ls[0].strip()
                 info = ls[1].strip() if len(ls) > 1 else ""
                 rs = re.split(r"\s+", r)
-                incr = rs[0].strip()
-                delay = rs[1].strip() if len(rs) > 1 else ""
-                edge = rs[2].strip() if len(rs) > 2 else ""
+                if len(rs) == 4:
+                    capacitance = 0.0
+                    trans = rs[0].strip()
+                    incr = rs[1].strip()
+                    delay = rs[2].strip()
+                    edge = rs[3].strip()
+                elif len(rs) == 5:
+                    capacitance = rs[0].strip()
+                    trans = rs[1].strip()
+                    incr = rs[2].strip()
+                    delay = rs[3].strip()
+                    edge = rs[4].strip()
+                else:
+                    continue
                 # print(f"{name:<30} | {info:<20} | {incr:<15} | {delay:<15} | {edge:<10}")
                 data.append({
                     "name": name,
                     "info": info,
+                    "cap": capacitance,
+                    "trans": trans,
                     "incr": incr,
                     "delay": delay,
                     "edge": edge
@@ -68,14 +83,14 @@ def get_all_paths(files):
     return ret
 
 base_addr = "/home/wenz/git/mySTA/report/simple"
-import glob
-files = glob.glob(f"{base_addr}/timing*.rpt")
-all_paths = get_all_paths(files)
-from sta import main
-dut_all_paths = main()
-ref_path_max = [p for p in all_paths if p['el'] == 'max']
-ref_path_min = [p for p in all_paths if p['el'] == 'min']
-ref_all_paths = {"max": ref_path_max, "min": ref_path_min}
+# import glob
+# files = glob.glob(f"{base_addr}/timing*.rpt")
+# all_paths = get_all_paths(files)
+# from sta import main
+# dut_all_paths = main()
+# ref_path_max = [p for p in all_paths if p['el'] == 'max']
+# ref_path_min = [p for p in all_paths if p['el'] == 'min']
+# ref_all_paths = {"max": ref_path_max, "min": ref_path_min}
 
 def get_path_all_pin_names(path):
     return [row['name'] for row in path]
