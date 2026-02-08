@@ -5,6 +5,11 @@ from Pin import EnumClockEdge, EnumPinType, Pin
 from Arc import Arc, EnumTimingSense
 from timer import Timer
 
+__debug_export__ = {
+    "circuit": None,
+    "timer": None,
+    "all_timing_paths": None
+}
 
 
 
@@ -34,6 +39,9 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     timer.calc_delay()
 
     all_timing_paths = timer.report_all_path()
+    __debug_export__["circuit"] = circuit
+    __debug_export__["timer"] = timer
+    __debug_export__["all_timing_paths"] = all_timing_paths
 
     if __name__ != '__main__':
         return all_timing_paths
