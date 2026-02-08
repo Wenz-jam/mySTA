@@ -30,6 +30,13 @@ class EnumClockEdge(Enum):
         }
         assert value.lower() in mapping, f"Unknown clock edge: {value}"
         return mapping.get(value.lower())
+    
+    def __str__(self):
+        mapping = {
+            EnumClockEdge.RISING: 'r',
+            EnumClockEdge.FALLING: 'f',
+        }
+        return mapping.get(self, 'unknown')
 
 class Pin:
     def __init__(self, name, pin_type=None):
