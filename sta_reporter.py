@@ -51,9 +51,10 @@ def main():
                 delay = sum([delay for _,_,delay in dut_path])
                 ref_delay = ref_path['data'][-1]['delay']
                 diff = abs(delay - float(ref_delay))
+                similarity = 1 - diff / max(delay, float(ref_delay))
                 if (not isinstance(results[el][ref_path['type']], float) # 默认是"-"
-                    or diff > results[el][ref_path['type']]): # 或者取最大
-                     results[el][ref_path['type']] = diff
+                    or similarity < results[el][ref_path['type']]): # 取最小的相似度
+                     results[el][ref_path['type']] = similarity
                 break
     pass
     print(get_design_name(verilog_file),",-,-", end=",")
