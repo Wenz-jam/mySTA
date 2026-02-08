@@ -154,11 +154,17 @@ class CircuitBuilder:
     def get_all_pins(self):
         """获取电路中所有Pin"""
         return self.pin_factory.get_all_pins()
+    def get_pin(self, pin_name):
+        """根据名称获取Pin"""
+        return self.pin_factory.get_pin(pin_name)
 
     def get_all_nets(self):
         """获取电路中所有Net"""
         return self.net_factory.get_all_nets()
-    
+    def get_net(self, net_name):
+        """根据名称获取Net"""
+        return self.net_factory.get_net(net_name)
+
     def get_all_arcs(self):
         """获取电路中所有Arc"""
         return self.arc_factory.get_all_arcs()
