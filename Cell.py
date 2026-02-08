@@ -9,6 +9,13 @@ class Cell:
         self.cell = select_cell(library, self.module)
         self.port_mapping = dict(instance['portlist'])  # cell_port -> net_name
         self.pins = {}  # port_name -> Pin对象
+
+    @staticmethod
+    def get_group(timing_info, group_name):
+        groups = timing_info.get_groups(group_name)
+        if groups:
+            return groups[0]
+        return None
     
     def create_pins(self, pin_factory):
         """为Cell创建所有Pin"""
@@ -32,14 +39,7 @@ class Cell:
                 net = net_factory.get_net(net_name)
                 if net:
                     pin.connect_to_net(net)
-    
-    @staticmethod
-    def get_group(timing_info, timing_type):
-        ret = timing_info.get_groups(timing_type)
-        if len(ret) > 0:
-            return ret[0]
-        return None
-    
+
     def create_arcs(self, arc_factory):
         """为Cell创建所有时序弧"""
         for pin_info in self.cell.get_groups('pin'):
@@ -58,6 +58,8 @@ class Cell:
                         cell_fall = Cell.get_group(timing_info, 'cell_fall')
                         rise_transition = Cell.get_group(timing_info, 'rise_transition')
                         fall_transition = Cell.get_group(timing_info, 'fall_transition')
+                        # 存在情况: 某些arc可能没有cell_rise/fall或transition信息，这时我们可以选择跳过这些arc，或者为它们设置默认值（例如0）。这里我们选择跳过。
+                        # 例如'DFFRQX2H7R'的异步复位引脚, PT的时序分析直接切断了他们, 我们在这里也不为他们创建arc.
                         if not all([cell_rise, cell_fall, rise_transition, fall_transition]):
                             continue
                         arc_factory.create_arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)

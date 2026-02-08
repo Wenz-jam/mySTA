@@ -1,3 +1,4 @@
+import os
 from pyverilog.vparser.parser import parse
 from pyverilog.vparser.ast import *
 from typing import Dict, List, Tuple, Optional, Any

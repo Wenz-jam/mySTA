@@ -40,12 +40,24 @@ class RegularGridInterpolator(Interpolator):
         T21 = self.values[i + 1][j]
         T22 = self.values[i + 1][j + 1]
 
+        x2x1 = x2-x1
+        y2y1 = y2-y1
+        x2x = x2-x0
+        y2y = y2-y0
+        yy1 = y0-y1
+        xx1 = x0-x1
+
         # print(f"Interpolating at x={x0}, y={y0} using grid cell defined by indices ({i}, {j})")
         # print(f"Grid corners: ({x1}, {y1}), ({x1}, {y2}), ({x2}, {y1}), ({x2}, {y2})")
         # print(f"Relative positions: X01={X01}, X20={X20}, Y01={Y01}, Y20={Y20}")
         # print(f"Grid values: T11={T11}, T12={T12}, T21={T21}, T22={T22}")
         # print()
 
+        return 1.0 / (x2x1 * y2y1) * \
+                sum([T11 * x2x * y2y , 
+                    T21 * xx1 * y2y , 
+                    T12 * x2x * yy1 , 
+                    T22 * xx1 * yy1])
 
         return sum([T11 * X20 * Y20,
                 T21 * X01 * Y20,

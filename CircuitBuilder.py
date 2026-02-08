@@ -21,8 +21,9 @@ class CircuitBuilder:
         self.primary_inputs = {}
         self.primary_outputs = {}
     
-    def build_from_verilog(self, wires, inputs, outputs, instances):
+    def build_from_verilog(self, module):
         """从Verilog信息构建完整电路"""
+        wires, inputs, outputs, instances = module.wires, module.inputs, module.outputs, module.instances
         # 步骤1: 创建所有Net
         self._create_nets(wires)
         
@@ -150,9 +151,21 @@ class CircuitBuilder:
         for key, value in stats.items():
             print(f"  {key}: {value}")
 
-def build_circuit(library, wires, inputs, outputs, instances):
+    def get_all_pins(self):
+        """获取电路中所有Pin"""
+        return self.pin_factory.get_all_pins()
+
+    def get_all_nets(self):
+        """获取电路中所有Net"""
+        return self.net_factory.get_all_nets()
+    
+    def get_all_arcs(self):
+        """获取电路中所有Arc"""
+        return self.arc_factory.get_all_arcs()
+
+def build_circuit(library, verilog_module):
     """构建电路的入口函数"""
-    circuit = CircuitBuilder(library).build_from_verilog(wires, inputs, outputs, instances)
+    circuit = CircuitBuilder(library).build_from_verilog(verilog_module)
     
     # 验证电路
     errors = circuit.validate()
