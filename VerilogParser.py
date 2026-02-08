@@ -166,7 +166,8 @@ class VerilogParser:
     
     def parse_file(self, verilog_file: str) -> Dict[str, VerilogModule]:
         """解析Verilog文件"""
-        ast, directives = parse([verilog_file])
+        outputdir = f"/tmp/sta/{verilog_file.split('/')[-1].replace(".v","")}"
+        ast, directives = parse([verilog_file], outputdir=outputdir)
         self._parse_ast(ast)
         return self.modules
     

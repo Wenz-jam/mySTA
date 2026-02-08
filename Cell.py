@@ -33,6 +33,13 @@ class Cell:
                 if net:
                     pin.connect_to_net(net)
     
+    @staticmethod
+    def get_group(timing_info, timing_type):
+        ret = timing_info.get_groups(timing_type)
+        if len(ret) > 0:
+            return ret[0]
+        return None
+    
     def create_arcs(self, arc_factory):
         """为Cell创建所有时序弧"""
         for pin_info in self.cell.get_groups('pin'):
@@ -47,8 +54,10 @@ class Cell:
                     
                     if from_pin:
                         timing_sense = timing_info.get_attribute('timing_sense')
-                        cell_rise = timing_info.get_group('cell_rise')
-                        cell_fall = timing_info.get_group('cell_fall')
-                        rise_transition = timing_info.get_group('rise_transition')
-                        fall_transition = timing_info.get_group('fall_transition')
+                        cell_rise = Cell.get_group(timing_info, 'cell_rise')
+                        cell_fall = Cell.get_group(timing_info, 'cell_fall')
+                        rise_transition = Cell.get_group(timing_info, 'rise_transition')
+                        fall_transition = Cell.get_group(timing_info, 'fall_transition')
+                        if not all([cell_rise, cell_fall, rise_transition, fall_transition]):
+                            continue
                         arc_factory.create_arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)

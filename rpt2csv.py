@@ -16,7 +16,7 @@ def hash_path(path):
     return path_hash
 
 def get_design_name(file):
-    return file.split('/')[-2].strip()
+    return file.split('/')[-1].strip()
 
 
 def main():
