@@ -1,6 +1,7 @@
 from Arc import Arc, EnumTimingSense
 import CircuitBuilder
-from Pin import EnumClockEdge, EnumPinType, Pin
+from Pin import Pin
+from EnumClass import ALL_CLOCK_EDGES, EnumClockEdge, EnumPinType
 
 def toposort(circuit: CircuitBuilder):
     visited = set()
@@ -37,26 +38,25 @@ class Timer:
     def update_capacitance(self):
         for pin in self.circuit.pin_factory.get_all_pins():
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
-            if pin.type in (EnumPinType.PRIMARY_INPUT, EnumPinType.OUTPUT):
-                pin.capacitance[EnumClockEdge.RISING] = sum([arc.to_pin.capacitance[EnumClockEdge.RISING] for arc in pin.fanout])
-                pin.capacitance[EnumClockEdge.FALLING] = sum([arc.to_pin.capacitance[EnumClockEdge.FALLING] for arc in pin.fanout])
+            if pin.type in (EnumPinType.PRIMARY_OUTPUT, EnumPinType.INPUT):
+                continue
+            for clock_edge in ALL_CLOCK_EDGES:
+                pin.capacitance[clock_edge] = sum([arc.to_pin.capacitance[clock_edge] for arc in pin.fanout])
 
     def propagate_slew(self):
-        clock_edges = [EnumClockEdge.RISING, EnumClockEdge.FALLING]
         # 拓扑排序所有Pin, 传播slew
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
-            for clock_edge_from_rise in clock_edges:
+            for clock_edge_from_rise in ALL_CLOCK_EDGES:
                 for arc in pin.fanout:
                     assert isinstance(arc, Arc), f"Arc {arc} is not an instance of Arc"
                     arc.propagate_slew(clock_edge_from_rise)
 
     def calc_delay(self):
-        clock_edges = [EnumClockEdge.RISING, EnumClockEdge.FALLING]
         # 拓扑排序所有Pin, 计算delay
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
-            for clock_edge_from_rise in clock_edges:
+            for clock_edge_from_rise in ALL_CLOCK_EDGES:
                 for arc in pin.fanout:
                     assert isinstance(arc, Arc), f"Arc {arc} is not an instance of Arc"
                     arc.calc_delay(clock_edge_from_rise)

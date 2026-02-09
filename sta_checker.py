@@ -1,6 +1,7 @@
 from timer import Timer
 from CircuitBuilder import CircuitBuilder
-from Pin import EnumClockEdge, Pin, EnumPinType
+from Pin import Pin
+from EnumClass import EnumClockEdge, EnumPinType
 from sta import main as sta_main, __debug_export__
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt2csv import hash_path, get_design_name

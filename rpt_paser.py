@@ -1,7 +1,7 @@
 import re
 import enum
 
-from Pin import EnumClockEdge
+from EnumClass import EnumClockEdge
 
 def parse_timing_report(file_content):
     all_data = []

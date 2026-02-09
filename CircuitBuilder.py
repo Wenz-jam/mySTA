@@ -1,9 +1,10 @@
 from collections import defaultdict
 
-from Arc import ArcFactory, PassThroughLut, EnumTimingSense, ZeroLut
+from Arc import ArcFactory, PassThroughLut, ZeroLut
 from Cell import Cell
 from Net import NetFactory
-from Pin import EnumPinType, PinFactory
+from Pin import PinFactory
+from EnumClass import EnumPinType, EnumTimingSense
 
 
 class CircuitBuilder:

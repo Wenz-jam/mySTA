@@ -1,7 +1,8 @@
 from read_liberty import libs as library
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
-from Pin import EnumClockEdge, EnumPinType, Pin
+from Pin import Pin
+from EnumClass import EnumClockEdge, EnumPinType
 from Arc import Arc, EnumTimingSense
 from timer import Timer
 

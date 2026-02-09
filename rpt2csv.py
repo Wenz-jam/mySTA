@@ -1,5 +1,5 @@
 from rpt_paser import get_all_paths, get_path_all_pin_names, find_ref_pin, find_ref_pin_incr, find_ref_pin_edge
-from Pin import EnumClockEdge
+from EnumClass import EnumClockEdge, EnumPinType
 
 import sys
 import hashlib

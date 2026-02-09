@@ -1,43 +1,6 @@
 from enum import Enum
 
-class EnumPinType(Enum):
-    PRIMARY_INPUT = 1
-    PRIMARY_OUTPUT = 2
-    INPUT = 3
-    OUTPUT = 4
-    
-    @staticmethod
-    def to_enum(value: str):
-        mapping = {
-            'input': EnumPinType.INPUT,
-            'output': EnumPinType.OUTPUT,
-            'primary_input': EnumPinType.PRIMARY_INPUT,
-            'primary_output': EnumPinType.PRIMARY_OUTPUT
-        }
-        assert value.lower() in mapping, f"Unknown pin type: {value}"
-        return mapping.get(value.lower())
-
-class EnumClockEdge(Enum):
-    FALLING = 0
-    RISING = 1
-    UNKNOWN = 2
-    
-    @staticmethod
-    def to_enum(value: str):
-        mapping = {
-            'rising': EnumClockEdge.RISING,
-            'falling': EnumClockEdge.FALLING
-        }
-        assert value.lower() in mapping, f"Unknown clock edge: {value}"
-        return mapping.get(value.lower())
-    
-    def __str__(self):
-        mapping = {
-            EnumClockEdge.RISING: 'r',
-            EnumClockEdge.FALLING: 'f',
-        }
-        return mapping.get(self, 'unknown')
-
+from EnumClass import EnumClockEdge, EnumPinType
 class Pin:
     def __init__(self, name, pin_type=None):
         self.name = name
