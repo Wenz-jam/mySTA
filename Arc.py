@@ -1,6 +1,6 @@
 from enum import Enum
 from Interpolator import RegularGridInterpolator
-from EnumClass import ALL_CLOCK_EDGES, EnumClockEdge, EnumTimingSense
+from EnumClass import ALL_CLOCK_EDGES, EnumClockEdge, EnumTimingSense, EnumTimingType
 
 class Lut:
     def __init__(self, lut_group):
@@ -50,6 +50,7 @@ class PassThroughLut(Lut):
 class Arc:
     from Pin import Pin
     def __init__(self,
+                timing_type: EnumTimingType,
                 timing_sense: EnumTimingSense,
                 from_pin: Pin,
                 to_pin: Pin,
@@ -57,6 +58,7 @@ class Arc:
                 cell_fall: Lut,
                 rise_transition: Lut,
                 fall_transition: Lut):
+        self.timing_type = timing_type
         self.timing_sense = timing_sense
         self.from_pin = from_pin
         self.to_pin = to_pin
@@ -138,6 +140,7 @@ class ArcFactory:
         self._arcs = {}
     
     def create_arc(self,
+                   timing_type,
                    timing_sense,
                    from_pin,
                    to_pin,
@@ -149,14 +152,15 @@ class ArcFactory:
         
         if arc_key in self._arcs:
             return self._arcs[arc_key]
-        
+
+        timing_type = EnumTimingType.to_enum(timing_type) if not isinstance(timing_type, EnumTimingType) else timing_type
         timing_sense = EnumTimingSense.to_enum(timing_sense) if not isinstance(timing_sense, EnumTimingSense) else timing_sense
         cell_rise = Lut(cell_rise) if not isinstance(cell_rise, Lut) else cell_rise
         cell_fall = Lut(cell_fall) if not isinstance(cell_fall, Lut) else cell_fall
         rise_transition = Lut(rise_transition) if not isinstance(rise_transition, Lut) else rise_transition
         fall_transition = Lut(fall_transition) if not isinstance(fall_transition, Lut) else fall_transition
 
-        arc = Arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
+        arc = Arc(timing_type, timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
         self._arcs[arc_key] = arc
         return arc
     

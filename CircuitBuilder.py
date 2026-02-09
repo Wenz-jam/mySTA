@@ -4,7 +4,7 @@ from Arc import ArcFactory, PassThroughLut, ZeroLut
 from Cell import Cell
 from Net import NetFactory
 from Pin import PinFactory
-from EnumClass import EnumPinType, EnumTimingSense
+from EnumClass import EnumPinType, EnumTimingSense, EnumTimingType
 
 
 class CircuitBuilder:
@@ -43,7 +43,14 @@ class CircuitBuilder:
                 continue
             for to_pin in net.sinks:
                 # 目前认为互联线直通, 无负载无延迟
-                self.arc_factory.create_arc(EnumTimingSense.POS_UNATE, from_pin, to_pin, self.zeroLut, self.zeroLut, self.passThroughLut, self.passThroughLut)
+                self.arc_factory.create_arc(EnumTimingType.WIRE,
+                                            EnumTimingSense.POS_UNATE, 
+                                            from_pin, 
+                                            to_pin, 
+                                            self.zeroLut, 
+                                            self.zeroLut, 
+                                            self.passThroughLut, 
+                                            self.passThroughLut)
         
         return self
     

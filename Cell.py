@@ -1,5 +1,5 @@
 from read_liberty import select_cell
-from Arc import Lut, EnumTimingSense
+from Arc import ArcFactory, Lut, EnumTimingSense
 from Pin import EnumClockEdge, EnumPinType
 class Cell:
     def __init__(self, name, instance, library):
@@ -47,7 +47,7 @@ class Cell:
                 if net:
                     pin.connect_to_net(net)
 
-    def create_arcs(self, arc_factory):
+    def create_arcs(self, arc_factory: ArcFactory):
         """为Cell创建所有时序弧"""
         for pin_info in self.cell.get_groups('pin'):
             port_name = pin_info.args[0]
@@ -60,6 +60,7 @@ class Cell:
                     from_pin = self.pins.get(from_port_name)
                     
                     if from_pin:
+                        timing_type = timing_info.get_attribute('timing_type')
                         timing_sense = timing_info.get_attribute('timing_sense')
                         cell_rise = Cell.get_group(timing_info, 'cell_rise')
                         cell_fall = Cell.get_group(timing_info, 'cell_fall')
@@ -69,4 +70,11 @@ class Cell:
                         # 例如'DFFRQX2H7R'的异步复位引脚, PT的时序分析直接切断了他们, 我们在这里也不为他们创建arc.
                         if not all([cell_rise, cell_fall, rise_transition, fall_transition]):
                             continue
-                        arc_factory.create_arc(timing_sense, from_pin, to_pin, cell_rise, cell_fall, rise_transition, fall_transition)
+                        arc_factory.create_arc(timing_type,
+                                                timing_sense,
+                                                from_pin,
+                                                to_pin,
+                                                cell_rise,
+                                                cell_fall,
+                                                rise_transition,
+                                                fall_transition)

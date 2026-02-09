@@ -42,20 +42,20 @@ class EnumClockEdge(Enum):
 
 ALL_CLOCK_EDGES = [EnumClockEdge.RISING, EnumClockEdge.FALLING]
 
-class EnumTimingType(Enum):
+class EnumTimingMode(Enum):
     MAX = 1
     MIN = 2
     
     @staticmethod
     def to_enum(value: str):
         mapping = {
-            'max': EnumTimingType.MAX,
-            'min': EnumTimingType.MIN
+            'max': EnumTimingMode.MAX,
+            'min': EnumTimingMode.MIN
         }
         assert value.lower() in mapping, f"Unknown timing type: {value}"
         return mapping.get(value.lower())
 
-ALL_TIMING_TYPES = [EnumTimingType.MAX, EnumTimingType.MIN]
+ALL_TIMING_MODES = [EnumTimingMode.MAX, EnumTimingMode.MIN]
 
 class EnumTimingSense(Enum):
     POS_UNATE = 1
@@ -73,3 +73,50 @@ class EnumTimingSense(Enum):
         return mapping.get(value.lower())
 
 ALL_TIMING_SENSES = [EnumTimingSense.POS_UNATE, EnumTimingSense.NEG_UNATE]
+
+class EnumTimingType(Enum):
+    WIRE = 0
+    CLEAR = 1
+    COMBINATIONAL = 2
+    FALLING_EDGE = 3
+    HOLD_FALLING = 4
+    HOLD_RISING = 5
+    MIN_PULSE_WIDTH = 6
+    NON_SEQ_HOLD_RISING = 7
+    NON_SEQ_SETUP_RISING = 8
+    PRESET = 9
+    RECOVERY_FALLING = 10
+    RECOVERY_RISING = 11
+    REMOVAL_FALLING = 12
+    REMOVAL_RISING = 13
+    RISING_EDGE = 14
+    SETUP_FALLING = 15
+    SETUP_RISING = 16
+    THREE_STATE_DISABLE = 17
+    THREE_STATE_ENABLE = 18
+    
+    @staticmethod
+    def to_enum(value: str):
+        mapping = {
+            "wire" : EnumTimingType.WIRE,
+            "clear" : EnumTimingType.CLEAR,
+            "combinational" : EnumTimingType.COMBINATIONAL,
+            "falling_edge" : EnumTimingType.FALLING_EDGE,
+            "hold_falling" : EnumTimingType.HOLD_FALLING,
+            "hold_rising" : EnumTimingType.HOLD_RISING,
+            "min_pulse_width" : EnumTimingType.MIN_PULSE_WIDTH,
+            "non_seq_hold_rising" : EnumTimingType.NON_SEQ_HOLD_RISING,
+            "non_seq_setup_rising" : EnumTimingType.NON_SEQ_SETUP_RISING,
+            "preset" : EnumTimingType.PRESET,
+            "recovery_falling" : EnumTimingType.RECOVERY_FALLING,
+            "recovery_rising" : EnumTimingType.RECOVERY_RISING,
+            "removal_falling" : EnumTimingType.REMOVAL_FALLING,
+            "removal_rising" : EnumTimingType.REMOVAL_RISING,
+            "rising_edge" : EnumTimingType.RISING_EDGE,
+            "setup_falling" : EnumTimingType.SETUP_FALLING,
+            "setup_rising" : EnumTimingType.SETUP_RISING,
+            "three_state_disable" : EnumTimingType.THREE_STATE_DISABLE,
+            "three_state_enable" : EnumTimingType.THREE_STATE_ENABLE,
+        }
+        assert value.lower() in mapping, f"Unknown timing type: {value}"
+        return mapping.get(value.lower())
