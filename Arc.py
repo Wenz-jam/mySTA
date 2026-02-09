@@ -117,11 +117,11 @@ class Arc:
         input_slew = self.from_pin.slew[clock_edge]
         to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
         if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
-            self.delay[EnumClockEdge.RISING] = max(self.delay[EnumClockEdge.RISING], self.get_delay(EnumClockEdge.RISING, input_slew, capacitance))
-            self.delay[EnumClockEdge.FALLING] = max(self.delay[EnumClockEdge.FALLING], self.get_delay(EnumClockEdge.FALLING, input_slew, capacitance))
+            self.delay[EnumClockEdge.RISING] = max(self.delay[EnumClockEdge.RISING], self.get_delay(EnumClockEdge.RISING, input_slew, capacitance[EnumClockEdge.RISING]))
+            self.delay[EnumClockEdge.FALLING] = max(self.delay[EnumClockEdge.FALLING], self.get_delay(EnumClockEdge.FALLING, input_slew, capacitance[EnumClockEdge.FALLING]))
         else:
             assert to_pin_clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
-            delay = self.get_delay(to_pin_clock_edge, input_slew, capacitance)
+            delay = self.get_delay(to_pin_clock_edge, input_slew, capacitance[to_pin_clock_edge])
             self.delay[to_pin_clock_edge] = delay
 
     def propagate_slew(self, clock_edge):
@@ -130,15 +130,15 @@ class Arc:
         to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
         if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
             # 前级的边沿导致后级的上升沿
-            self.slew[EnumClockEdge.RISING] = max(self.slew[EnumClockEdge.RISING], self.get_slew(EnumClockEdge.RISING, input_slew, capacitance))
+            self.slew[EnumClockEdge.RISING] = max(self.slew[EnumClockEdge.RISING], self.get_slew(EnumClockEdge.RISING, input_slew, capacitance[EnumClockEdge.RISING]))
             # 前级的边沿导致后级的下降沿
-            self.slew[EnumClockEdge.FALLING] = max(self.slew[EnumClockEdge.FALLING], self.get_slew(EnumClockEdge.FALLING, input_slew, capacitance))
+            self.slew[EnumClockEdge.FALLING] = max(self.slew[EnumClockEdge.FALLING], self.get_slew(EnumClockEdge.FALLING, input_slew, capacitance[EnumClockEdge.FALLING]))
             # 同步更新to_pin的slew
             self.to_pin.slew[EnumClockEdge.RISING] = max(self.to_pin.slew[EnumClockEdge.RISING], self.slew[EnumClockEdge.RISING])
             self.to_pin.slew[EnumClockEdge.FALLING] = max(self.to_pin.slew[EnumClockEdge.FALLING], self.slew[EnumClockEdge.FALLING])
         else:
             assert to_pin_clock_edge in (EnumClockEdge.RISING, EnumClockEdge.FALLING)
-            slew = self.get_slew(to_pin_clock_edge, input_slew, capacitance)
+            slew = self.get_slew(to_pin_clock_edge, input_slew, capacitance[to_pin_clock_edge])
             self.slew[to_pin_clock_edge] = slew
             self.to_pin.slew[to_pin_clock_edge] = max(self.to_pin.slew[to_pin_clock_edge], slew)
 

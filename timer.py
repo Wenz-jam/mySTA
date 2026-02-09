@@ -38,8 +38,9 @@ class Timer:
         for pin in self.circuit.pin_factory.get_all_pins():
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             if pin.type in (EnumPinType.PRIMARY_INPUT, EnumPinType.OUTPUT):
-                pin.capacitance = sum([arc.to_pin.capacitance for arc in pin.fanout])
-    
+                pin.capacitance[EnumClockEdge.RISING] = sum([arc.to_pin.capacitance[EnumClockEdge.RISING] for arc in pin.fanout])
+                pin.capacitance[EnumClockEdge.FALLING] = sum([arc.to_pin.capacitance[EnumClockEdge.FALLING] for arc in pin.fanout])
+
     def propagate_slew(self):
         clock_edges = [EnumClockEdge.RISING, EnumClockEdge.FALLING]
         # 拓扑排序所有Pin, 传播slew

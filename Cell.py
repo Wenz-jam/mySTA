@@ -1,6 +1,6 @@
 from read_liberty import select_cell
 from Arc import Lut, EnumTimingSense
-from Pin import EnumPinType
+from Pin import EnumClockEdge, EnumPinType
 class Cell:
     def __init__(self, name, instance, library):
         self.name :str = name
@@ -27,8 +27,15 @@ class Cell:
             
             pin = pin_factory.create_pin(pin_name, pin_type)
             capacitance = pin_info.get_attribute('capacitance')
+            rise_capacitance = pin_info.get_attribute('rise_capacitance')
+            fall_capacitance = pin_info.get_attribute('fall_capacitance')
             if capacitance:
-                pin.capacitance = float(capacitance)
+                pin.capacitance[EnumClockEdge.RISING] = float(capacitance)
+                pin.capacitance[EnumClockEdge.FALLING] = float(capacitance)
+            if rise_capacitance:
+                pin.capacitance[EnumClockEdge.RISING] = float(rise_capacitance)
+            if fall_capacitance:
+                pin.capacitance[EnumClockEdge.FALLING] = float(fall_capacitance)
             self.pins[port_name] = pin
     
     def connect_pins_to_nets(self, net_factory):

@@ -43,7 +43,7 @@ class Pin:
         self.name = name
         self.net = None
         self.type = pin_type  # 避免与Python的type关键字冲突
-        self.capacitance = 0.0
+        self.capacitance = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
         self.slew = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
         self.arcs = None # decrapated
         self.fanin = []
