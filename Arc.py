@@ -1,6 +1,7 @@
 from enum import Enum
+from Pin import Pin
 from Interpolator import RegularGridInterpolator
-from EnumClass import ALL_CLOCK_EDGES, EnumClockEdge, EnumTimingSense, EnumTimingType
+from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, EnumClockEdge, EnumTimingMode, EnumTimingSense, EnumTimingType
 
 class Lut:
     def __init__(self, lut_group):
@@ -48,7 +49,6 @@ class PassThroughLut(Lut):
 
 # Arc.delay以及Arc.slew在C++实现中使用引用的方式与to_pin中的delay, slew绑定, 同步发生变化
 class Arc:
-    from Pin import Pin
     def __init__(self,
                 timing_type: EnumTimingType,
                 timing_sense: EnumTimingSense,
@@ -62,12 +62,16 @@ class Arc:
         self.timing_sense = timing_sense
         self.from_pin = from_pin
         self.to_pin = to_pin
-        self.cell_rise = cell_rise
-        self.cell_fall = cell_fall
-        self.rise_transition = rise_transition
-        self.fall_transition = fall_transition
-        self.slew = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
-        self.delay = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
+        self.cell_rise = None
+        self.cell_fall = None
+        self.rise_transition = None
+        self.fall_transition = None
+        self.delay_lut = {EnumClockEdge.RISING: cell_rise, EnumClockEdge.FALLING: cell_fall}
+        self.slew_lut  = {EnumClockEdge.RISING: rise_transition, EnumClockEdge.FALLING: fall_transition}
+        self.capacitance = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0},
+                            EnumTimingMode.MIN: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}}
+        self.delay = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0},
+                        EnumTimingMode.MIN: {EnumClockEdge.RISING: 1e8, EnumClockEdge.FALLING: 1e8}}
 
         # 双向连接
         from_pin.fanout.append(self)
@@ -76,19 +80,68 @@ class Arc:
     def __repr__(self):
         return f"Arc({self.from_pin.name} -> {self.to_pin.name})"
 
-    def get_delay(self,clock_edge, input_slew, output_capacitance):
+    def get_capacitance(self, timing_mode, clock_edge):
+        """获取Arc的capacitance值"""
+        assert timing_mode in ALL_TIMING_MODES
         assert clock_edge in ALL_CLOCK_EDGES
-        if clock_edge == EnumClockEdge.RISING:
-            return self.cell_rise.get_value(input_slew, output_capacitance)
-        else:
-            return self.cell_fall.get_value(input_slew, output_capacitance)
+        return self.capacitance[timing_mode][clock_edge] + self.to_pin.get_capacitance(timing_mode, clock_edge)
+    
+    def set_capacitance(self, timing_mode, clock_edge, capacitance_value):
+        """设置Arc的capacitance值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        self.capacitance[timing_mode][clock_edge] = capacitance_value
 
-    def get_slew(self,clock_edge, input_slew, output_capacitance):
+    def get_delay(self, timing_mode, clock_edge):
+        """获取Arc的delay值"""
+        assert timing_mode in ALL_TIMING_MODES
         assert clock_edge in ALL_CLOCK_EDGES
-        if clock_edge == EnumClockEdge.RISING:
-            return self.rise_transition.get_value(input_slew, output_capacitance)
-        else:
-            return self.fall_transition.get_value(input_slew, output_capacitance)
+        return self.delay[timing_mode][clock_edge]
+
+    def set_delay(self, timing_mode, clock_edge, delay_value):
+        """设置Arc的delay值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        self.delay[timing_mode][clock_edge] = delay_value
+
+    def calc_slew(self, clock_edge, input_slew, capacitance):
+        """根据Arc的LUT计算slew值"""
+        return self.slew_lut[clock_edge].get_value(input_slew, capacitance)
+    
+    def propagate_slew(self, timing_mode, clock_edge, slew_value):
+        """依据前级的slew值, 计算to_pin的slew并更新到to_pin中"""
+        to_pin: Pin = self.to_pin
+        if self.timing_sense == EnumTimingSense.NON_UNATE:
+            # 前级导致上升沿
+            to_pin_clock_edge = EnumClockEdge.RISING
+            capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
+            to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
+            to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
+            # 前级导致下降沿
+            to_pin_clock_edge = EnumClockEdge.FALLING
+            capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
+            to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
+            to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
+            return
+        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
+        capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
+        to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
+        to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
+    
+    def calc_delay(self, clock_edge, input_slew, capacitance):
+        """根据Arc的LUT计算delay值"""
+        return self.delay_lut[clock_edge].get_value(input_slew, capacitance)
+
+    def update_delay(self, timing_mode, clock_edge):
+        """更新Arc的delay值，并同步更新to_pin的delay值"""
+        from_pin: Pin = self.from_pin
+        to_pin: Pin = self.to_pin
+        from_pin_slew = from_pin.get_slew(timing_mode, clock_edge)
+        to_pin_capacitance = to_pin.get_capacitance(timing_mode, clock_edge)
+        delay = self.calc_delay(clock_edge, from_pin_slew, to_pin_capacitance)
+        if ((timing_mode == EnumTimingMode.MAX and delay > self.delay[timing_mode][clock_edge]) or
+        (timing_mode == EnumTimingMode.MIN and delay < self.delay[timing_mode][clock_edge])):
+            self.set_delay(timing_mode, clock_edge, delay)
 
     def get_to_pin_clock_edge(self, clock_edge):
         if self.timing_sense == EnumTimingSense.POS_UNATE:
@@ -97,37 +150,6 @@ class Arc:
             return EnumClockEdge.FALLING if clock_edge == EnumClockEdge.RISING else EnumClockEdge.RISING
         else:
             return EnumClockEdge.UNKNOWN
-
-    def calc_delay(self, clock_edge):
-        capacitance = self.to_pin.capacitance
-        input_slew = self.from_pin.slew[clock_edge]
-        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
-        if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
-            self.delay[EnumClockEdge.RISING] = max(self.delay[EnumClockEdge.RISING], self.get_delay(EnumClockEdge.RISING, input_slew, capacitance[EnumClockEdge.RISING]))
-            self.delay[EnumClockEdge.FALLING] = max(self.delay[EnumClockEdge.FALLING], self.get_delay(EnumClockEdge.FALLING, input_slew, capacitance[EnumClockEdge.FALLING]))
-        else:
-            assert to_pin_clock_edge in ALL_CLOCK_EDGES
-            delay = self.get_delay(to_pin_clock_edge, input_slew, capacitance[to_pin_clock_edge])
-            self.delay[to_pin_clock_edge] = delay
-
-    def propagate_slew(self, clock_edge):
-        capacitance = self.to_pin.capacitance
-        input_slew = self.from_pin.slew[clock_edge]
-        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
-        if to_pin_clock_edge == EnumClockEdge.UNKNOWN:
-            # 前级的边沿导致后级的上升沿
-            self.slew[EnumClockEdge.RISING] = max(self.slew[EnumClockEdge.RISING], self.get_slew(EnumClockEdge.RISING, input_slew, capacitance[EnumClockEdge.RISING]))
-            # 前级的边沿导致后级的下降沿
-            self.slew[EnumClockEdge.FALLING] = max(self.slew[EnumClockEdge.FALLING], self.get_slew(EnumClockEdge.FALLING, input_slew, capacitance[EnumClockEdge.FALLING]))
-            # 同步更新to_pin的slew
-            self.to_pin.slew[EnumClockEdge.RISING] = max(self.to_pin.slew[EnumClockEdge.RISING], self.slew[EnumClockEdge.RISING])
-            self.to_pin.slew[EnumClockEdge.FALLING] = max(self.to_pin.slew[EnumClockEdge.FALLING], self.slew[EnumClockEdge.FALLING])
-        else:
-            assert to_pin_clock_edge in ALL_CLOCK_EDGES
-            slew = self.get_slew(to_pin_clock_edge, input_slew, capacitance[to_pin_clock_edge])
-            self.slew[to_pin_clock_edge] = slew
-            self.to_pin.slew[to_pin_clock_edge] = max(self.to_pin.slew[to_pin_clock_edge], slew)
-
     
     @property
     def key(self):

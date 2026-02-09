@@ -1,19 +1,55 @@
 from enum import Enum
 
-from EnumClass import EnumClockEdge, EnumPinType
+from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, EnumClockEdge, EnumPinType, EnumTimingMode
+
 class Pin:
     def __init__(self, name, pin_type=None):
         self.name = name
         self.net = None
         self.type = pin_type  # 避免与Python的type关键字冲突
-        self.capacitance = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
-        self.slew = {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}
-        self.arcs = None # decrapated
+        self.capacitance = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}, 
+                            EnumTimingMode.MIN: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}}
+        self.slew = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}, 
+                     EnumTimingMode.MIN: {EnumClockEdge.RISING: 1e8, EnumClockEdge.FALLING: 1e8}}
+        self.arrival_time = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}, 
+                      EnumTimingMode.MIN: {EnumClockEdge.RISING: 1e8, EnumClockEdge.FALLING: 1e8}}
+        self.predecessor = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
+                            EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
+        self.arcs = None # deprecated
         self.fanin = []
         self.fanout = []
     
     def __repr__(self):
         return f"Pin({self.name}, type={self.type})"
+
+    def get_slew(self, timing_mode, clock_edge):
+        """获取Pin的slew值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        return self.slew[timing_mode][clock_edge]
+
+    def set_slew(self, timing_mode, clock_edge, slew_value):
+        """更新Pin的slew值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        self.slew[timing_mode][clock_edge] = slew_value
+
+    def get_capacitance(self, timing_mode, clock_edge):
+        """获取Pin的capacitance值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        return self.capacitance[timing_mode][clock_edge]
+
+    def set_capacitance(self, timing_mode, clock_edge, capacitance_value):
+        """更新Pin的capacitance值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        self.capacitance[timing_mode][clock_edge] = capacitance_value
+    
+    def update_capacitance(self, timing_mode, clock_edge):
+        total_capacitance = sum(arc.get_capacitance(timing_mode, clock_edge) for arc in self.fanout)
+        self.set_capacitance(timing_mode, clock_edge, total_capacitance)
+
     
     def connect_to_net(self, net):
         """将Pin连接到Net，根据Pin类型确定是source还是sink"""
@@ -25,6 +61,27 @@ class Pin:
             net.set_source(self)
         else:
             raise ValueError(f"Unknown pin type: {self.type} for pin {self.name}")
+
+    def propagate_slew(self, timing_mode, clock_edge):
+        """传播Pin的slew值到fanout的Arc和to_pin"""
+        slew = self.get_slew(timing_mode, clock_edge)
+        for arc in self.fanout:
+            arc.propagate_slew(timing_mode, clock_edge, slew)
+
+    def propagate_delay(self, timing_mode, clock_edge):
+        """传播Pin的arrival_time值到fanout的Arc和to_pin"""
+        for arc in self.fanout:
+            arc.update_delay(timing_mode, clock_edge)
+
+    def update_slew(self, timing_mode, clock_edge, slew_value):
+        """更新Pin的slew值"""
+        old_slew = self.get_slew(timing_mode, clock_edge)
+        if timing_mode == EnumTimingMode.MAX:
+            self.set_slew(timing_mode, clock_edge, max(old_slew, slew_value))
+        elif timing_mode == EnumTimingMode.MIN:
+            self.set_slew(timing_mode, clock_edge, min(old_slew, slew_value))
+        else:
+            raise ValueError(f"Unknown timing mode: {timing_mode} for pin {self.name}")
 
 class PinFactory:
     """Pin对象工厂，管理Pin的创建和查询"""

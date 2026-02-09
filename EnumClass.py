@@ -54,6 +54,13 @@ class EnumTimingMode(Enum):
         }
         assert value.lower() in mapping, f"Unknown timing type: {value}"
         return mapping.get(value.lower())
+    
+    def __str__(self):
+        mapping = {
+            EnumTimingMode.MAX: 'max',
+            EnumTimingMode.MIN: 'min'
+        }
+        return mapping.get(self, 'unknown')
 
 ALL_TIMING_MODES = [EnumTimingMode.MAX, EnumTimingMode.MIN]
 
@@ -120,3 +127,8 @@ class EnumTimingType(Enum):
         }
         assert value.lower() in mapping, f"Unknown timing type: {value}"
         return mapping.get(value.lower())
+
+def FOREACH_EL_RF(handler):
+    for timing_type in ALL_TIMING_MODES:
+        for clock_edge in ALL_CLOCK_EDGES:
+            handler(timing_type, clock_edge)

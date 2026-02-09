@@ -4,7 +4,7 @@ from Arc import ArcFactory, PassThroughLut, ZeroLut
 from Cell import Cell
 from Net import NetFactory
 from Pin import PinFactory
-from EnumClass import EnumPinType, EnumTimingSense, EnumTimingType
+from EnumClass import FOREACH_EL_RF, EnumPinType, EnumTimingSense, EnumTimingType
 
 
 class CircuitBuilder:
@@ -64,6 +64,7 @@ class CircuitBuilder:
         # 创建主输入
         for input_name in inputs:
             pin = self.pin_factory.create_pin(input_name, EnumPinType.PRIMARY_INPUT)
+            FOREACH_EL_RF(lambda el, rf: pin.set_slew(el, rf, 0.0)) # 主输入slew为0
             net = self.net_factory.get_net(input_name)
             if net:
                 pin.connect_to_net(net)
@@ -72,6 +73,7 @@ class CircuitBuilder:
         # 创建主输出
         for output_name in outputs:
             pin = self.pin_factory.create_pin(output_name, EnumPinType.PRIMARY_OUTPUT)
+            FOREACH_EL_RF(lambda el, rf: pin.set_slew(el, rf, 0.0)) # 主输出slew为0
             net = self.net_factory.get_net(output_name)
             if net:
                 pin.connect_to_net(net)

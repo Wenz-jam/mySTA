@@ -1,3 +1,4 @@
+from Visualizer import Visualizer
 from read_liberty import libs as library
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
@@ -19,6 +20,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         verilog_file = "/home/wenz/git/mySTA/report/Booth_Multiplier/Booth_Multiplier.v"
         verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
         verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
+        verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
         verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
         # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
@@ -38,7 +40,10 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     
     timer.update_capacitance()
     timer.propagate_slew()
-    timer.calc_delay()
+    timer.propagate_delay()
+
+    Visualizer(circuit).visualize()
+    return
 
     all_timing_paths = timer.report_all_path()
     __debug_export__["circuit"] = circuit

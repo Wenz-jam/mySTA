@@ -1,6 +1,6 @@
 from read_liberty import select_cell
-from Arc import ArcFactory, Lut, EnumTimingSense
-from Pin import EnumClockEdge, EnumPinType
+from Arc import ArcFactory, Lut, EnumTimingMode
+from Pin import EnumClockEdge, EnumPinType, Pin
 class Cell:
     def __init__(self, name, instance, library):
         self.name :str = name
@@ -25,17 +25,32 @@ class Cell:
             direction = pin_info.get_attribute('direction')
             pin_type = EnumPinType.to_enum(direction)
             
-            pin = pin_factory.create_pin(pin_name, pin_type)
+            pin:Pin = pin_factory.create_pin(pin_name, pin_type)
             capacitance = pin_info.get_attribute('capacitance')
             rise_capacitance = pin_info.get_attribute('rise_capacitance')
             fall_capacitance = pin_info.get_attribute('fall_capacitance')
-            if capacitance:
-                pin.capacitance[EnumClockEdge.RISING] = float(capacitance)
-                pin.capacitance[EnumClockEdge.FALLING] = float(capacitance)
-            if rise_capacitance:
-                pin.capacitance[EnumClockEdge.RISING] = float(rise_capacitance)
-            if fall_capacitance:
-                pin.capacitance[EnumClockEdge.FALLING] = float(fall_capacitance)
+            rise_capacitance_range = pin_info.get_attribute('rise_capacitance_range')
+            fall_capacitance_range = pin_info.get_attribute('fall_capacitance_range')
+            if rise_capacitance_range:
+                min_cap, max_cap = rise_capacitance_range
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.RISING, min_cap)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.RISING, max_cap)
+            elif rise_capacitance:
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.RISING, rise_capacitance)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.RISING, rise_capacitance)
+            else:
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.RISING, capacitance)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.RISING, capacitance)
+            if fall_capacitance_range:
+                min_cap, max_cap = fall_capacitance_range
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.FALLING, min_cap)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.FALLING, max_cap)
+            elif fall_capacitance:
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.FALLING, fall_capacitance)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.FALLING, fall_capacitance)
+            else:
+                pin.set_capacitance(EnumTimingMode.MIN, EnumClockEdge.FALLING, capacitance)
+                pin.set_capacitance(EnumTimingMode.MAX, EnumClockEdge.FALLING, capacitance)
             self.pins[port_name] = pin
     
     def connect_pins_to_nets(self, net_factory):

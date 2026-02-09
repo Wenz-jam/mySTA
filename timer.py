@@ -1,7 +1,7 @@
 from Arc import Arc, EnumTimingSense
 import CircuitBuilder
 from Pin import Pin
-from EnumClass import ALL_CLOCK_EDGES, EnumClockEdge, EnumPinType
+from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, FOREACH_EL_RF, EnumClockEdge, EnumPinType
 
 def toposort(circuit: CircuitBuilder):
     visited = set()
@@ -40,20 +40,26 @@ class Timer:
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             if pin.type in (EnumPinType.PRIMARY_OUTPUT, EnumPinType.INPUT):
                 continue
-            for clock_edge in ALL_CLOCK_EDGES:
-                pin.capacitance[clock_edge] = sum([arc.to_pin.capacitance[clock_edge] for arc in pin.fanout])
+            FOREACH_EL_RF(pin.update_capacitance)
 
     def propagate_slew(self):
         # 拓扑排序所有Pin, 传播slew
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
-            for clock_edge_from_rise in ALL_CLOCK_EDGES:
-                for arc in pin.fanout:
-                    assert isinstance(arc, Arc), f"Arc {arc} is not an instance of Arc"
-                    arc.propagate_slew(clock_edge_from_rise)
+            FOREACH_EL_RF(pin.propagate_slew)
+    
+    def propagate_delay(self):
+        # 拓扑排序所有Pin, 传播delay
+        for pin in toposort(self.circuit):
+            assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
+            FOREACH_EL_RF(pin.propagate_delay)
 
     def calc_delay(self):
         # 拓扑排序所有Pin, 计算delay
+        for arc in self.circuit.get_all_arcs():
+            assert isinstance(arc, Arc), f"Arc {arc} is not an instance of Arc"
+            FOREACH_EL_RF(arc.update_delay)
+        return
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             for clock_edge_from_rise in ALL_CLOCK_EDGES:
