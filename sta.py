@@ -3,7 +3,7 @@ from read_liberty import libs as library
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
 from Pin import Pin
-from EnumClass import EnumClockEdge, EnumPinType
+from EnumClass import FOREACH_EL_RF, EnumClockEdge, EnumPinType
 from Arc import Arc, EnumTimingSense
 from timer import Timer
 
@@ -41,6 +41,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     timer.update_capacitance()
     timer.propagate_slew()
     timer.propagate_delay()
+    timer.propagate_arrival_time()
 
     Visualizer(circuit).visualize()
     return

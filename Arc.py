@@ -70,8 +70,8 @@ class Arc:
         self.slew_lut  = {EnumClockEdge.RISING: rise_transition, EnumClockEdge.FALLING: fall_transition}
         self.capacitance = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0},
                             EnumTimingMode.MIN: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}}
-        self.delay = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0},
-                        EnumTimingMode.MIN: {EnumClockEdge.RISING: 1e8, EnumClockEdge.FALLING: 1e8}}
+        self.delay = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
+                        EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
 
         # 双向连接
         from_pin.fanout.append(self)
@@ -104,52 +104,66 @@ class Arc:
         assert clock_edge in ALL_CLOCK_EDGES
         self.delay[timing_mode][clock_edge] = delay_value
 
-    def calc_slew(self, clock_edge, input_slew, capacitance):
-        """根据Arc的LUT计算slew值"""
-        return self.slew_lut[clock_edge].get_value(input_slew, capacitance)
-    
-    def propagate_slew(self, timing_mode, clock_edge, slew_value):
-        """依据前级的slew值, 计算to_pin的slew并更新到to_pin中"""
-        to_pin: Pin = self.to_pin
-        if self.timing_sense == EnumTimingSense.NON_UNATE:
-            # 前级导致上升沿
-            to_pin_clock_edge = EnumClockEdge.RISING
-            capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
-            to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
-            to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
-            # 前级导致下降沿
-            to_pin_clock_edge = EnumClockEdge.FALLING
-            capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
-            to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
-            to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
-            return
-        to_pin_clock_edge = self.get_to_pin_clock_edge(clock_edge)
-        capacitance = self.get_capacitance(timing_mode, to_pin_clock_edge)
-        to_pin_slew = self.calc_slew(to_pin_clock_edge, slew_value, capacitance)
-        to_pin.update_slew(timing_mode, to_pin_clock_edge, to_pin_slew)
-    
-    def calc_delay(self, clock_edge, input_slew, capacitance):
-        """根据Arc的LUT计算delay值"""
-        return self.delay_lut[clock_edge].get_value(input_slew, capacitance)
-
-    def update_delay(self, timing_mode, clock_edge):
-        """更新Arc的delay值，并同步更新to_pin的delay值"""
-        from_pin: Pin = self.from_pin
-        to_pin: Pin = self.to_pin
-        from_pin_slew = from_pin.get_slew(timing_mode, clock_edge)
-        to_pin_capacitance = to_pin.get_capacitance(timing_mode, clock_edge)
-        delay = self.calc_delay(clock_edge, from_pin_slew, to_pin_capacitance)
-        if ((timing_mode == EnumTimingMode.MAX and delay > self.delay[timing_mode][clock_edge]) or
-        (timing_mode == EnumTimingMode.MIN and delay < self.delay[timing_mode][clock_edge])):
-            self.set_delay(timing_mode, clock_edge, delay)
-
-    def get_to_pin_clock_edge(self, clock_edge):
+    def is_clock_edge_valid(self, from_clock_edge, to_clock_edge):
+        """判断给定的from_clock_edge和to_clock_edge是否符合Arc的timing_sense"""
         if self.timing_sense == EnumTimingSense.POS_UNATE:
-            return clock_edge
+            return from_clock_edge == to_clock_edge
         elif self.timing_sense == EnumTimingSense.NEG_UNATE:
-            return EnumClockEdge.FALLING if clock_edge == EnumClockEdge.RISING else EnumClockEdge.RISING
+            return from_clock_edge != to_clock_edge
+        elif self.timing_sense == EnumTimingSense.NON_UNATE:
+            return True
         else:
-            return EnumClockEdge.UNKNOWN
+            raise ValueError(f"Unknown timing sense: {self.timing_sense}")
+
+    def calc_slew(self, clock_edge, slew, capacitance):
+        """根据Arc的LUT计算slew值"""
+        return self.slew_lut[clock_edge].get_value(slew, capacitance)
+    
+    def calc_delay(self, clock_edge, slew, capacitance):
+        """根据Arc的LUT计算delay值"""
+        return self.delay_lut[clock_edge].get_value(slew, capacitance)
+    
+    def propagate_slew(self, timing_mode, from_clock_edge, to_clock_edge):
+        """依据前级的slew值, 计算to_pin的slew并更新到to_pin中"""
+        if not self.is_clock_edge_valid(from_clock_edge, to_clock_edge):
+            return
+        input_slew = self.from_pin.get_slew(timing_mode, from_clock_edge)
+        capacitance = self.get_capacitance(timing_mode, to_clock_edge)
+        to_pin_slew = self.calc_slew(to_clock_edge, input_slew, capacitance)
+        self.to_pin.update_slew(timing_mode, to_clock_edge, to_pin_slew)
+
+    def update_delay(self, timing_mode, from_clock_edge, to_clock_edge, delay):
+        """更新Arc的delay值，并同步更新to_pin的delay值"""
+        assert self.is_clock_edge_valid(from_clock_edge, to_clock_edge), \
+            f"Invalid clock edge transition from {from_clock_edge} to {to_clock_edge} for timing sense {self.timing_sense}"
+        old_value = self.get_delay(timing_mode, to_clock_edge)
+        if timing_mode == EnumTimingMode.MAX:
+            if not old_value or delay > old_value:
+                self.set_delay(timing_mode, to_clock_edge, delay)
+        elif timing_mode == EnumTimingMode.MIN:
+            if not old_value or delay < old_value:
+                self.set_delay(timing_mode, to_clock_edge, delay)
+        else:
+            raise ValueError(f"Unknown timing mode: {timing_mode}")
+
+    def propagate_delay(self, timing_mode, from_clock_edge, to_clock_edge):
+        """更新Arc的delay值，并同步更新to_pin的delay值"""
+        if not self.is_clock_edge_valid(from_clock_edge, to_clock_edge):
+            return
+        from_pin_slew = self.from_pin.get_slew(timing_mode, from_clock_edge)
+        capacitance = self.get_capacitance(timing_mode, to_clock_edge)
+        delay = self.calc_delay(to_clock_edge, from_pin_slew, capacitance)
+        self.update_delay(timing_mode, from_clock_edge, to_clock_edge, delay)
+    
+    def propagate_arrival_time(self, timing_mode, from_clock_edge, to_clock_edge):
+        """更新Arc的delay值，并同步更新to_pin的arrival_time值"""
+        if not self.is_clock_edge_valid(from_clock_edge, to_clock_edge):
+            return
+        print(f"Propagating arrival time to {self.to_pin.name} in timing mode {timing_mode} from clock edge {from_clock_edge} to {to_clock_edge}")
+        from_pin_arrival_time = self.from_pin.get_arrival_time(timing_mode, from_clock_edge)
+        delay = self.get_delay(timing_mode, to_clock_edge)
+        arrival_time = from_pin_arrival_time + delay
+        self.to_pin.update_arrival_time(timing_mode, to_clock_edge, arrival_time, self)
     
     @property
     def key(self):

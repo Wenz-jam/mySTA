@@ -22,6 +22,11 @@ def format_delay(arc: Arc):
     FOREACH_EL_RF(lambda el, rf: buffer.append(f"d_{el}_{rf}={arc.get_delay(el, rf):.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
+def format_at(pin: Pin):
+    buffer = []
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"at_{el}_{rf}={pin.get_arrival_time(el, rf):.{SIGNIFICANT_DIGITS}f}"))
+    return "\n".join(buffer)
+
 class Visualizer:
     def __init__(self, circuit):
         self.circuit: CircuitBuilder = circuit
@@ -51,10 +56,10 @@ class Visualizer:
             to_pin = arc.to_pin
             if '/' in from_pin.name:
                 cell_name = from_pin.name.split('/')[0]
-                cell_blocks[cell_name].add_node(from_pin.name, label=f"{from_pin.name.split('/')[1]}\n{format_capacitance(from_pin)}\n{format_slew(from_pin)}\n")
+                cell_blocks[cell_name].add_node(from_pin.name, label=f"{from_pin.name.split('/')[1]}\n{format_capacitance(from_pin)}\n{format_slew(from_pin)}\n{format_at(to_pin)}")
             if '/' in to_pin.name:
                 cell_name = to_pin.name.split('/')[0]
-                cell_blocks[cell_name].add_node(to_pin.name, label=f"{to_pin.name.split('/')[1]}\n{format_capacitance(to_pin)}\n{format_slew(to_pin)}\n")
+                cell_blocks[cell_name].add_node(to_pin.name, label=f"{to_pin.name.split('/')[1]}\n{format_capacitance(to_pin)}\n{format_slew(to_pin)}\n{format_at(to_pin)}")
             graph.add_edge(from_pin.name, to_pin.name, label=format_delay(arc))
         graph.write('circuit.dot')
 

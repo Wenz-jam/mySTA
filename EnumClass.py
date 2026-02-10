@@ -128,7 +128,12 @@ class EnumTimingType(Enum):
         assert value.lower() in mapping, f"Unknown timing type: {value}"
         return mapping.get(value.lower())
 
+import itertools
 def FOREACH_EL_RF(handler):
-    for timing_type in ALL_TIMING_MODES:
-        for clock_edge in ALL_CLOCK_EDGES:
-            handler(timing_type, clock_edge)
+    for timing_type, clock_edge in itertools.product(ALL_TIMING_MODES, ALL_CLOCK_EDGES):
+        handler(timing_type, clock_edge)
+    
+def FOREACH_EL_FRF_TRF(handler):
+    for timing_type, from_clock_edge, to_clock_edge in \
+        itertools.product(ALL_TIMING_MODES, ALL_CLOCK_EDGES, ALL_CLOCK_EDGES):    
+        handler(timing_type, from_clock_edge, to_clock_edge)

@@ -65,6 +65,7 @@ class CircuitBuilder:
         for input_name in inputs:
             pin = self.pin_factory.create_pin(input_name, EnumPinType.PRIMARY_INPUT)
             FOREACH_EL_RF(lambda el, rf: pin.set_slew(el, rf, 0.0)) # 主输入slew为0
+            FOREACH_EL_RF(lambda el, rf: pin.set_arrival_time(el, rf, 0.0)) # 主输入arrival_time为0
             net = self.net_factory.get_net(input_name)
             if net:
                 pin.connect_to_net(net)
