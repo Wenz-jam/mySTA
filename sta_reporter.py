@@ -1,3 +1,4 @@
+from CircuitBuilder import CircuitBuilder
 from sta import main as sta_main
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt_paser import get_all_paths, get_path_all_pin_names
@@ -15,7 +16,9 @@ PATH_TYPES = ["in2out", "in2reg", "reg2reg", "reg2out"]
 def main():
     if len(sys.argv) < 2:
         verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
-        verilog_file = "/home/wenz/git/mySTA/report/arbiter/arbiter.v"
+        verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/arbiter/arbiter.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
     else:
         verilog_file = sys.argv[1]
     classified_dut_paths = try_run_main(verilog_file)
@@ -26,16 +29,16 @@ def main():
     ref_all_paths = {"max": ref_path_max, "min": ref_path_min}
     results = {
         "max":{
-            "in2out" :{"diff":0.0, "similarity":1, "path":None},
-            "in2reg" :{"diff":0.0, "similarity":1, "path":None},
-            "reg2reg":{"diff":0.0, "similarity":1, "path":None},
-            "reg2out":{"diff":0.0, "similarity":1, "path":None},
+            "in2out" :{"diff":0, "similarity":1, "path":None},
+            "in2reg" :{"diff":0, "similarity":1, "path":None},
+            "reg2reg":{"diff":0, "similarity":1, "path":None},
+            "reg2out":{"diff":0, "similarity":1, "path":None},
         },
         "min":{ # 目前还没实现min的路径匹配，所以先用-占位
-            "in2out" :{"diff":0.0, "similarity":1, "path":None},
-            "in2reg" :{"diff":0.0, "similarity":1, "path":None},
-            "reg2reg":{"diff":0.0, "similarity":1, "path":None},
-            "reg2out":{"diff":0.0, "similarity":1, "path":None},
+            "in2out" :{"diff":0, "similarity":1, "path":None},
+            "in2reg" :{"diff":0, "similarity":1, "path":None},
+            "reg2reg":{"diff":0, "similarity":1, "path":None},
+            "reg2out":{"diff":0, "similarity":1, "path":None},
         }
     }
     el = 'max'
@@ -48,18 +51,19 @@ def main():
                 for ref_path in ref_paths:
                     if not all(ref_pin['name'] in dut_path_pin_names for ref_pin in ref_path):
                         continue
-                    ref_delay = float(ref_path[-1]['delay'])
-                    dut_delay = sum([delay for _,_,delay in dut_path])
-                    diff = abs(dut_delay - ref_delay)
-                    if dut_delay == 0 and ref_delay == 0:
+                    ref_at = float(ref_path[-1]['delay'])
+                    _,_,dut_at = dut_path[-1] # (name , clock_edge, at)
+                    diff = abs(dut_at - float(ref_at))
+                    if ref_at == 0 and dut_at == 0:
                         similarity = 1.0
                     else:
-                        similarity = 1 - diff / max(dut_delay, ref_delay)
+                        similarity = 1 - diff / max(dut_at, ref_at)
                     if (not isinstance(results[el][path_type]['diff'], float) # 默认是"-"
                         or similarity < results[el][path_type]['similarity']): # 或者取最小的similarity
                          results[el][path_type]['diff'] = diff
                          results[el][path_type]['path'] = dut_path
                          results[el][path_type]['similarity'] = similarity
+
     for el in EL_TYPES:
         for path_type in PATH_TYPES:
             res = results[el][path_type]
@@ -75,7 +79,7 @@ def main():
     for el in EL_TYPES:
         for path_type in PATH_TYPES:
             nr_ref_paths = len(classified_ref_paths[el][path_type])
-            if (el == 'min' or # 目前没有实现min的路径匹配，所以先用-占位
+            if (
                 (results[el][path_type]['path'] is None and nr_ref_paths == 0)):
                     res_str = "-"
             else:

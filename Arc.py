@@ -159,9 +159,11 @@ class Arc:
         """更新Arc的delay值，并同步更新to_pin的arrival_time值"""
         if not self.is_clock_edge_valid(from_clock_edge, to_clock_edge):
             return
-        print(f"Propagating arrival time to {self.to_pin.name} in timing mode {timing_mode} from clock edge {from_clock_edge} to {to_clock_edge}")
         from_pin_arrival_time = self.from_pin.get_arrival_time(timing_mode, from_clock_edge)
         delay = self.get_delay(timing_mode, to_clock_edge)
+        # 部分路径被剪枝
+        if from_pin_arrival_time is None or delay is None:
+            return
         arrival_time = from_pin_arrival_time + delay
         self.to_pin.update_arrival_time(timing_mode, to_clock_edge, arrival_time, self)
     

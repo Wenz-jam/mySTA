@@ -24,7 +24,7 @@ def format_delay(arc: Arc):
 
 def format_at(pin: Pin):
     buffer = []
-    FOREACH_EL_RF(lambda el, rf: buffer.append(f"at_{el}_{rf}={pin.get_arrival_time(el, rf):.{SIGNIFICANT_DIGITS}f}"))
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"at_{el}_{rf}={at if (at := pin.get_arrival_time(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
 class Visualizer:

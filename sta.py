@@ -3,9 +3,9 @@ from read_liberty import libs as library
 from CircuitBuilder import CircuitBuilder, build_circuit
 from VerilogParser import VerilogParser
 from Pin import Pin
-from EnumClass import FOREACH_EL_RF, EnumClockEdge, EnumPinType
+from EnumClass import FOREACH_EL_FRF_TRF, FOREACH_EL_RF, EnumClockEdge, EnumPinType, EnumTimingMode
 from Arc import Arc, EnumTimingSense
-from timer import Timer
+from timer import Timer, toposort
 
 __debug_export__ = {
     "circuit": None,
@@ -41,88 +41,14 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     timer.update_capacitance()
     timer.propagate_slew()
     timer.propagate_delay()
-    timer.propagate_arrival_time()
+    # timer.propagate_arrival_time()
+    classified_paths = timer.report_all_path()
 
-    Visualizer(circuit).visualize()
-    return
+    # Visualizer(circuit).visualize()
 
-    all_timing_paths = timer.report_all_path()
     __debug_export__["circuit"] = circuit
     __debug_export__["timer"] = timer
-    __debug_export__["all_timing_paths"] = all_timing_paths
     
-    # 自动推断时钟引脚
-    module_clock_pin = None
-    for cell in circuit.cells:
-        if "CK" in cell.port_mapping:
-            clock_pin_name = cell.port_mapping["CK"]
-            clock_pin = circuit.get_pin(clock_pin_name)
-            if clock_pin and clock_pin.type == EnumPinType.PRIMARY_INPUT:
-                module_clock_pin = clock_pin
-                break
-    # filterd timing path中没有时钟引脚
-    filtered_timing_paths = []
-    if module_clock_pin is not None:
-        for timing_path in all_timing_paths:
-            if timing_path[0][0] == module_clock_pin.name:
-                filtered_timing_paths.append(timing_path[1:]) # 去掉时钟引脚
-            else:
-                filtered_timing_paths.append(timing_path)
-        # 自动推断路径类型
-        classified_paths = {
-            "max":{
-                    "in2reg": [],
-                    "in2out": [],
-                    "reg2reg": [],
-                    "reg2out": []
-            },
-            "min":{
-                    "in2reg": [],
-                    "in2out": [],
-                    "reg2reg": [],
-                    "reg2out": []
-            }
-        }
-        el = "max" # 目前还没实现min的路径匹配，所以先用max占位
-        for timing_path in filtered_timing_paths:
-            start_pin_name = timing_path[0][0]
-            end_pin_name = timing_path[-1][0]
-            start_pin = circuit.get_pin(start_pin_name)
-            end_pin = circuit.get_pin(end_pin_name)
-            assert isinstance(start_pin, Pin) and isinstance(end_pin, Pin), \
-                f"Pin not found: {start_pin_name} or {end_pin_name}"
-            if start_pin.type == EnumPinType.PRIMARY_INPUT:
-                input_type = "in"
-            elif start_pin.type == EnumPinType.INPUT:
-                assert start_pin.fanin[0].from_pin == module_clock_pin, f"Unexpected start pin {start_pin_name} for timing path"
-                input_type = "reg"
-            else:
-                continue
-                raise ValueError(f"Unexpected start pin type {start_pin.type} for pin {start_pin_name}"
-                                 f"path: {[pin_name for pin_name, _, _ in timing_path]}")
-            if end_pin.type == EnumPinType.PRIMARY_OUTPUT:
-                output_type = "out"
-            elif end_pin.type == EnumPinType.INPUT:
-                assert len(end_pin.fanout) == 0, f"Unexpected end pin: {end_pin_name} has fanout"
-                output_type = "reg"
-            else:
-                continue
-                raise ValueError(f"Unexpected end pin type {end_pin.type} for pin {end_pin_name}"
-                                 f"path: {[pin_name for pin_name, _, _ in timing_path]}")
-            path_type = f"{input_type}2{output_type}"
-            classified_paths[el][path_type].append(timing_path)
-        for el in ["max", "min"]:
-            for path_type in ["in2reg","in2out","reg2reg","reg2out"]:
-                paths = classified_paths[el][path_type]
-                uniq_endpoints = {}
-                for path in paths:
-                    end_pin_name = path[-1][0]
-                    delay = sum(delay for _, _, delay in path)
-                    if end_pin_name not in uniq_endpoints or delay > uniq_endpoints[end_pin_name]['delay']:
-                        uniq_endpoints[end_pin_name] = {'delay': delay, 'paths': [path]}
-                classified_paths[el][path_type] = \
-                    [p for endpoint in uniq_endpoints.values() for p in endpoint['paths']]
-
     if __name__ != '__main__':
         return classified_paths
     
@@ -132,11 +58,12 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
             print(f"{el} {path_type}: {len(paths)} paths")
             for path in paths:
                 print("Timing Path:")
-                total_delay = 0
-                for name, clock_edge_from_rise, delay in path:
-                    total_delay += delay
-                    print(f"{name:<15} {clock_edge_from_rise.name:<8} delay: {delay:.10f} ns, total_delay: {total_delay:.10f} ns")
-                print("-"*20)
+                last_at = 0
+                for name, clock_edge, at in path:
+                    incr = at - last_at
+                    last_at = at
+                    print(f"{name:<15} {clock_edge:<2} delay: {incr:.10f} ns, total_delay: {at:.10f} ns")
+                print("-"*60)
     # 输出路径
     # worst_path = max(all_timing_paths, key=lambda path: sum(delay for _, _, delay in path))
     # total_delay = 0

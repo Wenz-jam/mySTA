@@ -69,6 +69,8 @@ def get_all_paths(files):
         rpt_type = re.search(r'timing_(.*).rpt', file).group(1)
         assert rpt_type, f"File name {file} does not match timing report pattern"
         el, path_type = re.split(r"_", rpt_type)
+        if path_type == "all":
+            continue
         assert el in ('min', 'max'), f"Unknown edge type: {el}"
         assert path_type in ('in2out', 'in2reg', 'reg2reg', 'reg2out'), f"Unknown timing type: {path_type}"
         with open(file, 'r') as f:
