@@ -42,7 +42,24 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     timer.propagate_slew()
     timer.propagate_delay()
     # timer.propagate_arrival_time()
-    classified_paths = timer.report_all_path()
+    max_in = timer.report_timing("max", "in")
+    max_reg = timer.report_timing("max", "reg")
+    min_in = timer.report_timing("min", "in")
+    min_reg = timer.report_timing("min", "reg")
+    classified_paths = {
+        "max": {
+            "in2reg": max_in['in2reg'],
+            "in2out": max_in['in2out'],
+            "reg2reg": max_reg['reg2reg'],
+            "reg2out": max_reg['reg2out']
+        },
+        "min": {
+            "in2reg": min_in['in2reg'],
+            "in2out": min_in['in2out'], 
+            "reg2reg": min_reg['reg2reg'],
+            "reg2out": min_reg['reg2out']
+        }
+    }
 
     # Visualizer(circuit).visualize()
 

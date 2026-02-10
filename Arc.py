@@ -165,7 +165,7 @@ class Arc:
         if from_pin_arrival_time is None or delay is None:
             return
         arrival_time = from_pin_arrival_time + delay
-        self.to_pin.update_arrival_time(timing_mode, to_clock_edge, arrival_time, self)
+        self.to_pin.update_arrival_time(timing_mode, from_clock_edge, to_clock_edge, arrival_time, self)
     
     @property
     def key(self):

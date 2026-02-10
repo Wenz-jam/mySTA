@@ -71,9 +71,9 @@ class Pin:
         for arc in self.fanout:
             arc.propagate_delay(timing_mode, from_clock_edge, to_clock_edge)
 
-    def update_predecessor(self, timing_mode, clock_edge, predecessor_arc):
+    def update_predecessor(self, timing_mode, from_clock_edge, to_clock_edge, predecessor_arc):
         """更新Pin的predecessor"""
-        self.predecessor[timing_mode][clock_edge] = predecessor_arc
+        self.predecessor[timing_mode][to_clock_edge] = (from_clock_edge, predecessor_arc)
 
     def update_slew(self, timing_mode, clock_edge, slew_value):
         """更新Pin的slew值"""
@@ -99,20 +99,20 @@ class Pin:
         assert timing_mode in ALL_TIMING_MODES
         assert clock_edge in ALL_CLOCK_EDGES
         self.arrival_time[timing_mode][clock_edge] = arrival_time_value
-    
-    def update_arrival_time(self, timing_mode, clock_edge, arrival_time_value, from_arc):
+
+    def update_arrival_time(self, timing_mode, from_clock_edge, to_clock_edge, arrival_time_value, from_arc):
         """更新Pin的arrival_time值"""
         assert timing_mode in ALL_TIMING_MODES
-        assert clock_edge in ALL_CLOCK_EDGES
-        old_at = self.get_arrival_time(timing_mode, clock_edge)
+        assert to_clock_edge in ALL_CLOCK_EDGES
+        old_at = self.get_arrival_time(timing_mode, to_clock_edge)
         if timing_mode == EnumTimingMode.MAX:
             if not old_at or arrival_time_value > old_at:
-                self.set_arrival_time(timing_mode, clock_edge, arrival_time_value)
-                self.update_predecessor(timing_mode, clock_edge, from_arc)
+                self.set_arrival_time(timing_mode, to_clock_edge, arrival_time_value)
+                self.update_predecessor(timing_mode, from_clock_edge, to_clock_edge, from_arc)
         elif timing_mode == EnumTimingMode.MIN:
             if not old_at or arrival_time_value < old_at:
-                self.set_arrival_time(timing_mode, clock_edge, arrival_time_value)
-                self.update_predecessor(timing_mode, clock_edge, from_arc)
+                self.set_arrival_time(timing_mode, to_clock_edge, arrival_time_value)
+                self.update_predecessor(timing_mode, from_clock_edge, to_clock_edge, from_arc)
         else:
             raise ValueError(f"Unknown timing mode: {timing_mode} for pin {self.name}")
 

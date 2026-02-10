@@ -60,156 +60,83 @@ class Timer:
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             FOREACH_EL_FRF_TRF(pin.propagate_arrival_time)
     
-    def report_all_path(self):
+    def reset_arrival_time(self):
+        for pin in self.circuit.pin_factory.get_all_pins():
+            assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
+            if pin.type == EnumPinType.PRIMARY_INPUT:
+                pin.set_arrival_time(EnumTimingMode.MAX, EnumClockEdge.RISING, 0)
+                pin.set_arrival_time(EnumTimingMode.MAX, EnumClockEdge.FALLING, 0)
+                continue
+            def reset_at(el, rf):
+                pin.set_arrival_time(el, rf, None)
+                pin.set_arrival_time(el, rf, None)
+            FOREACH_EL_RF(reset_at)
+    
+    def deduce_clock(self):
         # 推断时钟引脚
-        module_clock_pin = None
         for cell in self.circuit.cells:
             if "CK" in cell.port_mapping:
                 clock_pin_name = cell.port_mapping["CK"]
                 clock_pin = self.circuit.get_pin(clock_pin_name)
                 if clock_pin and clock_pin.type == EnumPinType.PRIMARY_INPUT:
-                    module_clock_pin = clock_pin
-                    break
-        classified_paths = {
-            "max":{
-                    "in2reg": [],
-                    "in2out": [],
-                    "reg2reg": [],
-                    "reg2out": []
-            },
-            "min":{
-                    "in2reg": [],
-                    "in2out": [],
-                    "reg2reg": [],
-                    "reg2out": []
-            }
+                    return clock_pin
+        return None
+    
+    def report_timing(self, delay_type: str, start_type):
+        module_clock_pin = self.deduce_clock()
+        paths = {
+            "in2reg": [],
+            "in2out": [],
+            "reg2reg": [],
+            "reg2out": []
         }
+        self.reset_arrival_time()
+        # 拓扑排序所有Pin, 传播arrival_time
         for pin in toposort(self.circuit):
-            if pin in self.circuit.primary_inputs.values() and pin != module_clock_pin:
-                continue
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
+            if start_type == "in":
+                if pin == module_clock_pin:
+                    continue
+            if start_type == "reg":
+                assert module_clock_pin, "Cannot find clock pin for reg2reg or reg2out path"
+                if pin in self.circuit.primary_inputs.values() and pin != module_clock_pin:
+                    continue
             FOREACH_EL_FRF_TRF(pin.propagate_arrival_time)
+        el = EnumTimingMode.to_enum(delay_type)
+        # 从所有没有fanout的Pin开始回溯, 生成路径
         endpoints = [pin for pin in self.circuit.pin_factory.get_all_pins() if len(pin.fanout) == 0]
-        el = "max"
-        for el in ["max", "min"]:
-            for end_pin in endpoints:
-                assert isinstance(end_pin, Pin), f"Pin {end_pin} is not an instance of Pin"
-                pin = end_pin
-                path = []
-                while True:
-                    ats = pin.arrival_time[EnumTimingMode.to_enum(el)]
-                    preds = pin.predecessor[EnumTimingMode.to_enum(el)]
-                    if ats[EnumClockEdge.RISING] is None and ats[EnumClockEdge.FALLING] is None:
-                        break
-                    if el == "max":
-                        if ats[EnumClockEdge.RISING] > ats[EnumClockEdge.FALLING]:
-                            pred = preds[EnumClockEdge.RISING]
-                            clock_edge = EnumClockEdge.RISING
-                        else:
-                            pred = preds[EnumClockEdge.FALLING]
-                            clock_edge = EnumClockEdge.FALLING
-                    if el == "min":
-                        if ats[EnumClockEdge.RISING] < ats[EnumClockEdge.FALLING]:
-                            pred = preds[EnumClockEdge.RISING]
-                            clock_edge = EnumClockEdge.RISING
-                        else:
-                            pred = preds[EnumClockEdge.FALLING]
-                            clock_edge = EnumClockEdge.FALLING
-                    path.append((pin.name, clock_edge, ats[clock_edge]))
-                    if pred is not None:
-                        pin = pred.from_pin
-                        continue
-                    if pin.name == module_clock_pin.name:
-                        path.pop() # 去掉时钟引脚
-                    path = path[::-1] # 反转路径
-                    pin = self.circuit.get_pin(path[0][0])
-                    if pin.type == EnumPinType.PRIMARY_INPUT:
-                        input_type = "in"
-                    elif pin.type == EnumPinType.INPUT:
-                        input_type = "reg"
-                    else:
-                        break
-                        raise ValueError(f"Unexpected start pin type {pin.type} for pin {pin.name}"
-                                        f"path: {[pin.name for pin in path]}")
-                    pin = self.circuit.get_pin(path[-1][0])
-                    if pin.type == EnumPinType.PRIMARY_OUTPUT:
-                        output_type = "out"
-                    elif pin.type == EnumPinType.INPUT:
-                        output_type = "reg"
-                    else:
-                        break
-                        raise ValueError(f"Unexpected end pin type {pin.type} for pin {pin.name}"
-                                        f"path: {[pin.name for pin in path]}")
-                    path_type = f"{input_type}2{output_type}"
-                    classified_paths[el][path_type].append(path)
-                    break
-        for pin in self.circuit.get_all_pins():
-            if pin.type == EnumPinType.PRIMARY_INPUT:
+        for end_pin in endpoints:
+            if end_pin.type == EnumPinType.PRIMARY_OUTPUT:
+                end_type = "out"
+            elif end_pin.type == EnumPinType.INPUT:
+                end_type = "reg"
+            else:
                 continue
-            def reset_at(el, rf):
-                pin.arrival_time[el][rf] = None
-                pin.arrival_time[el][rf] = None
-            FOREACH_EL_RF(reset_at)
-        for pin in toposort(self.circuit):
-            if pin == module_clock_pin:
+            pin = end_pin
+            assert isinstance(end_pin, Pin), f"Pin {end_pin} is not an instance of Pin"
+            atr = pin.arrival_time[el][EnumClockEdge.RISING]
+            atf = pin.arrival_time[el][EnumClockEdge.FALLING]
+            if atr is None or atf is None:
                 continue
-            assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
-            FOREACH_EL_FRF_TRF(pin.propagate_arrival_time)
-        endpoints = [pin for pin in self.circuit.pin_factory.get_all_pins() if len(pin.fanout) == 0]
-        el = "max"
-        for el in ["max", "min"]:
-            for end_pin in endpoints:
-                assert isinstance(end_pin, Pin), f"Pin {end_pin} is not an instance of Pin"
-                pin = end_pin
-                path = []
-                while True:
-                    ats = pin.arrival_time[EnumTimingMode.to_enum(el)]
-                    preds = pin.predecessor[EnumTimingMode.to_enum(el)]
-                    if ats[EnumClockEdge.RISING] is None and ats[EnumClockEdge.FALLING] is None:
-                        break
-                    if el == "max":
-                        if ats[EnumClockEdge.RISING] > ats[EnumClockEdge.FALLING]:
-                            pred = preds[EnumClockEdge.RISING]
-                            clock_edge = EnumClockEdge.RISING
-                        else:
-                            pred = preds[EnumClockEdge.FALLING]
-                            clock_edge = EnumClockEdge.FALLING
-                    if el == "min":
-                        if ats[EnumClockEdge.RISING] < ats[EnumClockEdge.FALLING]:
-                            pred = preds[EnumClockEdge.RISING]
-                            clock_edge = EnumClockEdge.RISING
-                        else:
-                            pred = preds[EnumClockEdge.FALLING]
-                            clock_edge = EnumClockEdge.FALLING
-                    path.append((pin.name, clock_edge, ats[clock_edge]))
-                    if pred is not None:
-                        pin = pred.from_pin
-                        continue
-                    if pin.name == module_clock_pin.name:
-                        path.pop() # 去掉时钟引脚
-                    path = path[::-1] # 反转路径
-                    pin = self.circuit.get_pin(path[0][0])
-                    if pin.type == EnumPinType.PRIMARY_INPUT:
-                        input_type = "in"
-                    elif pin.type == EnumPinType.INPUT:
-                        input_type = "reg"
-                    else:
-                        break
-                        raise ValueError(f"Unexpected start pin type {pin.type} for pin {pin.name}"
-                                        f"path: {[pin.name for pin in path]}")
-                    pin = self.circuit.get_pin(path[-1][0])
-                    if pin.type == EnumPinType.PRIMARY_OUTPUT:
-                        output_type = "out"
-                    elif pin.type == EnumPinType.INPUT:
-                        output_type = "reg"
-                    else:
-                        break
-                        raise ValueError(f"Unexpected end pin type {pin.type} for pin {pin.name}"
-                                        f"path: {[pin.name for pin in path]}")
-                    path_type = f"{input_type}2{output_type}"
-                    classified_paths[el][path_type].append(path)
+            if delay_type == "max":
+                if atr > atf:
+                    edge = EnumClockEdge.RISING
+                else:
+                    edge = EnumClockEdge.FALLING
+            else:
+                if atr < atf:
+                    edge = EnumClockEdge.RISING
+                else:
+                    edge = EnumClockEdge.FALLING
+            path = []
+            while True:
+                path.append((pin.name , edge , pin.arrival_time[el][edge]))
+                if pin.predecessor[el][edge] is None:
+                    paths[f"{start_type}2{end_type}"].append(path[::-1])
                     break
-        return classified_paths
+                edge, arc = pin.predecessor[el][edge]
+                pin = arc.from_pin
+        return paths
                 
 
             

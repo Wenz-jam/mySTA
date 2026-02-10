@@ -104,24 +104,6 @@ def main():
                          results[el][path_type]['path'] = dut_path
                          results[el][path_type]['similarity'] = similarity
 
-
-    # for dut_path in dut_all_paths:
-    #     dut_pin_has_delay = [pin_name for pin_name, _, delay in dut_path if delay > 0]
-    #     for ref_path in ref_path_max:
-    #         ref_pin_names = get_path_all_pin_names(ref_path['data'])
-    #         if all(pin_name in ref_pin_names for pin_name in dut_pin_has_delay):
-    #             results[el][ref_path['type']]['path_number'] += 1
-    #             delay = sum([delay for _,_,delay in dut_path])
-    #             ref_delay = ref_path['data'][-1]['delay']
-    #             diff = abs(delay - float(ref_delay))
-    #             similarity = 1 - diff / max(delay, float(ref_delay))
-    #             if (not isinstance(results[el][ref_path['type']]['diff'], float) # 默认是"-"
-    #                 or similarity < results[el][ref_path['type']]['diff']): # 或者取最小的similarity
-    #                  results[el][ref_path['type']]['diff'] = diff
-    #                  results[el][ref_path['type']]['path'] = dut_path
-    #                  results[el][ref_path['type']]['similarity'] = similarity
-    #             break
-    # pass
     print(f"Checking Module: {get_design_name(verilog_file)}")
     for el in EL_TYPES:
         for path_type in PATH_TYPES:
