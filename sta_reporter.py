@@ -16,7 +16,6 @@ PATH_TYPES = ["in2out", "in2reg", "reg2reg", "reg2out"]
 def main():
     if len(sys.argv) < 2:
         verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
-        verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
         # verilog_file = "/home/wenz/git/mySTA/report/arbiter/arbiter.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
     else:
@@ -47,12 +46,12 @@ def main():
             dut_paths = classified_dut_paths[el][path_type]
             ref_paths = classified_ref_paths[el][path_type]
             for dut_path in dut_paths:
-                dut_path_pin_names = set(pin_name for pin_name, _, delay in dut_path)
+                dut_path_pin_names = set(info['name'] for info in dut_path)
                 for ref_path in ref_paths:
                     if not all(ref_pin['name'] in dut_path_pin_names for ref_pin in ref_path):
                         continue
                     ref_at = float(ref_path[-1]['delay'])
-                    _,_,dut_at = dut_path[-1] # (name , clock_edge, at)
+                    dut_at = dut_path[-1]["at"] # (name , clock_edge, at)
                     diff = abs(dut_at - float(ref_at))
                     if ref_at == 0 and dut_at == 0:
                         similarity = 1.0
@@ -63,6 +62,7 @@ def main():
                          results[el][path_type]['diff'] = diff
                          results[el][path_type]['path'] = dut_path
                          results[el][path_type]['similarity'] = similarity
+
 
     for el in EL_TYPES:
         for path_type in PATH_TYPES:

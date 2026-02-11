@@ -138,13 +138,19 @@ class Timer:
             atf = pin.arrival_time[el][EnumClockEdge.FALLING]
             ratr = pin.request_arrival_time[el][EnumClockEdge.RISING]
             ratf = pin.request_arrival_time[el][EnumClockEdge.FALLING]
-            slackr = ratr - atr if atr is not None and ratr is not None else None
-            slackf = ratf - atf if atf is not None and ratf is not None else None
-            if slackf is None or slackr is None:
+            if any([x is None for x in [atr, atf, ratr, ratf]]):
                 continue
-            if slackr > slackf:
+            if el == EnumTimingMode.MAX:
+                slackr = self.clock_cycle - ratr - atr
+                slackf = self.clock_cycle - ratf - atf
+            elif el == EnumTimingMode.MIN:
+                slackr = atr - ratr
+                slackf = atf - ratf
+            if slackr < slackf:
+                slack = slackr
                 edge = EnumClockEdge.RISING
             else:
+                slack = slackf
                 edge = EnumClockEdge.FALLING
             # if delay_type == "max":
             #     if atr > atf:
@@ -158,7 +164,7 @@ class Timer:
             #         edge = EnumClockEdge.FALLING
             path = []
             while True:
-                path.append((pin.name , edge , pin.arrival_time[el][edge]))
+                path.append({"name": pin.name, "edge": edge, "at": pin.arrival_time[el][edge], "pin": pin, "slack":slack})
                 if pin.predecessor[el][edge] is None:
                     paths[f"{start_type}2{end_type}"].append(path[::-1])
                     break

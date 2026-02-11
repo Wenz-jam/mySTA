@@ -21,7 +21,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
-        # verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
+        verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
         # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
         # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
@@ -37,7 +37,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
 
     # 构建电路
     circuit = build_circuit(library, module)
-    timer = Timer(circuit, 10, 5, 10)
+    timer = Timer(circuit)
     
     timer.update_capacitance()
     timer.propagate_slew()
@@ -78,7 +78,10 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
             for path in paths:
                 print("Timing Path:")
                 last_at = 0
-                for name, clock_edge, at in path:
+                for info in path:
+                    name = info['name']
+                    clock_edge = info['edge']
+                    at = info['at']
                     incr = at - last_at
                     last_at = at
                     print(f"{name:<15} {clock_edge:<2} delay: {incr:.10f} ns, total_delay: {at:.10f} ns")

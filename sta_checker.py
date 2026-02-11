@@ -87,12 +87,12 @@ def main():
             dut_paths = classified_dut_paths[el][path_type]
             ref_paths = classified_ref_paths[el][path_type]
             for dut_path in dut_paths:
-                dut_path_pin_names = set(pin_name for pin_name, _, delay in dut_path)
+                dut_path_pin_names = set(info['name'] for info in dut_path)
                 for ref_path in ref_paths:
                     if not all(ref_pin['name'] in dut_path_pin_names for ref_pin in ref_path):
                         continue
                     ref_at = float(ref_path[-1]['delay'])
-                    _,_,dut_at = dut_path[-1] # (name , clock_edge, at)
+                    dut_at = dut_path[-1]["at"] # (name , clock_edge, at)
                     diff = abs(dut_at - float(ref_at))
                     if ref_at == 0 and dut_at == 0:
                         similarity = 1.0
@@ -117,7 +117,10 @@ def main():
                     continue
                 print(f"{el} {path_type}: {res['diff']:.10f} ns diff, similarity={res['similarity']:.10f}")
                 old_at = 0
-                for pin_name, clock_edge, at in res['path']:
+                for info in res['path']:
+                    pin_name = info['name']
+                    at = info['at']
+                    clock_edge = info['edge']
                     pin: Pin = circuit.get_pin(pin_name)
                     incr = at - old_at
                     old_at = at
@@ -125,9 +128,9 @@ def main():
                     if pin.type in [EnumPinType.INPUT] and incr == 0 and len(pin.fanout) > 0:
                         continue # 输入端口没有delay的情况不输出
                     capacitance = pin.capacitance[EnumTimingMode.to_enum(el)]
-                    max_pin_name_len = max(len(name) for name, _, _ in res['path'])
+                    max_pin_name_len = max(len(info['name']) for info in res['path'])
                     print(f"  {pin_name:<{max_pin_name_len+1}} (capacitance={capacitance[clock_edge]:.10f} pf , incr={incr:.10f} ns), {clock_edge}")
-                print(f"total delay: {sum([delay for _,_,delay in res['path']]):.10f} ns")
+                print(f"total delay: {sum([info['at'] for info in res['path']]):.10f} ns, slack: {res['path'][-1]['slack']}")
 
 if __name__ == '__main__':
     main()
