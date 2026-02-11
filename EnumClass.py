@@ -127,6 +127,28 @@ class EnumTimingType(Enum):
         }
         assert value.lower() in mapping, f"Unknown timing type: {value}"
         return mapping.get(value.lower())
+    
+    @staticmethod
+    def is_combinational(timing_type):
+        return timing_type in [EnumTimingType.COMBINATIONAL, EnumTimingType.WIRE]
+
+    @staticmethod
+    def is_sequential(timing_type):
+        return timing_type in [EnumTimingType.FALLING_EDGE, 
+                               EnumTimingType.RISING_EDGE, 
+                               EnumTimingType.HOLD_FALLING, 
+                               EnumTimingType.HOLD_RISING, 
+                               EnumTimingType.SETUP_FALLING, 
+                               EnumTimingType.SETUP_RISING, 
+                            #  这些时序类型目前不处理
+                            #    EnumTimingType.MIN_PULSE_WIDTH, 
+                            #    EnumTimingType.RECOVERY_FALLING, 
+                            #    EnumTimingType.RECOVERY_RISING, 
+                            #    EnumTimingType.REMOVAL_FALLING, 
+                            #    EnumTimingType.REMOVAL_RISING, 
+                            #    EnumTimingType.THREE_STATE_DISABLE, 
+                            #    EnumTimingType.THREE_STATE_ENABLE
+                               ]
 
 import itertools
 def FOREACH_EL_RF(handler):
