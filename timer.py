@@ -1,3 +1,4 @@
+import sys
 from Arc import Arc, EnumTimingSense
 import CircuitBuilder
 from Pin import Pin
@@ -31,9 +32,12 @@ def get_all_paths(start_pin: Pin, path):
         path.pop()
 
 class Timer:
-    def __init__(self, circuit: CircuitBuilder):
+    def __init__(self, circuit: CircuitBuilder, clock_cycle= 10, clock_rise_at = None, clock_fall_at = None):
         self.circuit: CircuitBuilder = circuit
-        self.all_timing_paths = []
+        self.clock_pin = None
+        self.clock_cycle = clock_cycle
+        self.clock_rise_at = 0 if clock_rise_at is None else clock_rise_at
+        self.clock_fall_at = clock_cycle /2 + self.clock_rise_at if clock_fall_at is None else clock_fall_at
 
     def update_capacitance(self):
         for pin in self.circuit.pin_factory.get_all_pins():
@@ -59,7 +63,17 @@ class Timer:
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             FOREACH_EL_FRF_TRF(pin.propagate_arrival_time)
-    
+
+    def propagate_request_arrival_time(self):
+        for pin in self.circuit.primary_outputs.values():
+            def reset_rat(el, rf):
+                pin.set_request_arrival_time(el, rf, self.clock_cycle + self.clock_rise_at)
+            FOREACH_EL_RF(reset_rat)
+        
+        for arc in self.circuit.get_all_constraint_arcs():
+            assert isinstance(arc, Arc), f"Arc {arc} is not an instance of Arc"
+            FOREACH_EL_FRF_TRF(arc.propagate_request_arrival_time)
+
     def reset_arrival_time(self):
         for pin in self.circuit.pin_factory.get_all_pins():
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
@@ -73,17 +87,23 @@ class Timer:
             FOREACH_EL_RF(reset_at)
     
     def deduce_clock(self):
+        if self.clock_pin is not None:
+            return self.clock_pin
         # 推断时钟引脚
         for cell in self.circuit.cells:
             if "CK" in cell.port_mapping:
                 clock_pin_name = cell.port_mapping["CK"]
                 clock_pin = self.circuit.get_pin(clock_pin_name)
                 if clock_pin and clock_pin.type == EnumPinType.PRIMARY_INPUT:
+                    self.clock_pin = clock_pin
                     return clock_pin
         return None
     
     def report_timing(self, delay_type: str, start_type):
-        module_clock_pin = self.deduce_clock()
+        if self.clock_pin is None:
+            print("Warning: Clock pin not found, Trying to deduce clock pin...", file=sys.stderr)
+            self.clock_pin = self.deduce_clock()
+
         paths = {
             "in2reg": [],
             "in2out": [],
@@ -95,11 +115,11 @@ class Timer:
         for pin in toposort(self.circuit):
             assert isinstance(pin, Pin), f"Pin {pin} is not an instance of Pin"
             if start_type == "in":
-                if pin == module_clock_pin:
+                if pin == self.clock_pin:
                     continue
             if start_type == "reg":
-                assert module_clock_pin, "Cannot find clock pin for reg2reg or reg2out path"
-                if pin in self.circuit.primary_inputs.values() and pin != module_clock_pin:
+                assert self.clock_pin, "Cannot find clock pin for reg2reg or reg2out path"
+                if pin in self.circuit.primary_inputs.values() and pin != self.clock_pin:
                     continue
             FOREACH_EL_FRF_TRF(pin.propagate_arrival_time)
         el = EnumTimingMode.to_enum(delay_type)
@@ -116,18 +136,26 @@ class Timer:
             assert isinstance(end_pin, Pin), f"Pin {end_pin} is not an instance of Pin"
             atr = pin.arrival_time[el][EnumClockEdge.RISING]
             atf = pin.arrival_time[el][EnumClockEdge.FALLING]
-            if atr is None or atf is None:
+            ratr = pin.request_arrival_time[el][EnumClockEdge.RISING]
+            ratf = pin.request_arrival_time[el][EnumClockEdge.FALLING]
+            slackr = ratr - atr if atr is not None and ratr is not None else None
+            slackf = ratf - atf if atf is not None and ratf is not None else None
+            if slackf is None or slackr is None:
                 continue
-            if delay_type == "max":
-                if atr > atf:
-                    edge = EnumClockEdge.RISING
-                else:
-                    edge = EnumClockEdge.FALLING
+            if slackr > slackf:
+                edge = EnumClockEdge.RISING
             else:
-                if atr < atf:
-                    edge = EnumClockEdge.RISING
-                else:
-                    edge = EnumClockEdge.FALLING
+                edge = EnumClockEdge.FALLING
+            # if delay_type == "max":
+            #     if atr > atf:
+            #         edge = EnumClockEdge.RISING
+            #     else:
+            #         edge = EnumClockEdge.FALLING
+            # else:
+            #     if atr < atf:
+            #         edge = EnumClockEdge.RISING
+            #     else:
+            #         edge = EnumClockEdge.FALLING
             path = []
             while True:
                 path.append((pin.name , edge , pin.arrival_time[el][edge]))

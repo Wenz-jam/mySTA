@@ -13,6 +13,8 @@ class Pin:
                      EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
         self.arrival_time = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}, 
                       EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
+        self.request_arrival_time = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
+                                    EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
         self.predecessor = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
                             EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
         self.arcs = None # deprecated
@@ -120,7 +122,38 @@ class Pin:
         """传播Pin的arrival_time值到fanout的Arc和to_pin"""
         for arc in self.fanout:
             arc.propagate_arrival_time(timing_mode, from_clock_edge, to_clock_edge)
+    
+    def set_request_arrival_time(self, timing_mode, clock_edge, request_arrival_time_value):
+        """更新Pin的request_arrival_time值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        assert request_arrival_time_value is not None, f"request_arrival_time_value cannot be None for pin {self.name}"
+        self.request_arrival_time[timing_mode][clock_edge] = request_arrival_time_value
 
+    def get_request_arrival_time(self, timing_mode, clock_edge):
+        """获取Pin的request_arrival_time值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert clock_edge in ALL_CLOCK_EDGES
+        return self.request_arrival_time[timing_mode][clock_edge]
+    
+    def update_request_arrival_time(self, timing_mode, from_clock_edge, to_clock_edge, request_arrival_time_value):
+        """更新Pin的request_arrival_time值"""
+        assert timing_mode in ALL_TIMING_MODES
+        assert to_clock_edge in ALL_CLOCK_EDGES
+        old_rat = self.get_request_arrival_time(timing_mode, to_clock_edge)
+        if timing_mode == EnumTimingMode.MAX:
+            if not old_rat or request_arrival_time_value > old_rat:
+                self.request_arrival_time[timing_mode][to_clock_edge] = request_arrival_time_value
+        elif timing_mode == EnumTimingMode.MIN:
+            if not old_rat or request_arrival_time_value < old_rat:
+                self.request_arrival_time[timing_mode][to_clock_edge] = request_arrival_time_value
+        else:
+            raise ValueError(f"Unknown timing mode: {timing_mode} for pin {self.name}")
+
+    def propagate_request_arrival_time(self, timing_mode, from_clock_edge, to_clock_edge):
+        """传播Pin的request_arrival_time值到fanout的Arc和to_pin"""
+        for arc in self.fanout:
+            arc.propagate_request_arrival_time(timing_mode, from_clock_edge, to_clock_edge)
 class PinFactory:
     """Pin对象工厂，管理Pin的创建和查询"""
     def __init__(self):

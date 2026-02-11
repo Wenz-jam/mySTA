@@ -1,3 +1,4 @@
+from EnumClass import EnumTimingSense, EnumTimingType
 from read_liberty import select_cell
 from Arc import ArcFactory, Lut, EnumTimingMode
 from Pin import EnumClockEdge, EnumPinType, Pin
@@ -67,29 +68,37 @@ class Cell:
         for pin_info in self.cell.get_groups('pin'):
             port_name = pin_info.args[0]
             to_pin = self.pins.get(port_name)
+
             
-            # 只处理输出pin的时序弧
-            if to_pin and to_pin.type == EnumPinType.OUTPUT:
-                for timing_info in pin_info.get_groups('timing'):
-                    from_port_name = timing_info.get_attribute('related_pin').value
-                    from_pin = self.pins.get(from_port_name)
-                    
-                    if from_pin:
-                        timing_type = timing_info.get_attribute('timing_type')
-                        timing_sense = timing_info.get_attribute('timing_sense')
-                        cell_rise = Cell.get_group(timing_info, 'cell_rise')
-                        cell_fall = Cell.get_group(timing_info, 'cell_fall')
-                        rise_transition = Cell.get_group(timing_info, 'rise_transition')
-                        fall_transition = Cell.get_group(timing_info, 'fall_transition')
-                        # 存在情况: 某些arc可能没有cell_rise/fall或transition信息，这时我们可以选择跳过这些arc，或者为它们设置默认值（例如0）。这里我们选择跳过。
-                        # 例如'DFFRQX2H7R'的异步复位引脚, PT的时序分析直接切断了他们, 我们在这里也不为他们创建arc.
-                        if not all([cell_rise, cell_fall, rise_transition, fall_transition]):
-                            continue
-                        arc_factory.create_arc(timing_type,
-                                                timing_sense,
-                                                from_pin,
-                                                to_pin,
-                                                cell_rise,
-                                                cell_fall,
-                                                rise_transition,
-                                                fall_transition)
+            for timing_info in pin_info.get_groups('timing'):
+                # 目前只处理组合逻辑和时序逻辑的arc
+                timing_type = timing_info.get_attribute('timing_type')
+                timing_type = EnumTimingType.to_enum(timing_type) if timing_type is not None else None
+                if not EnumTimingType.is_sequential(timing_type) and not EnumTimingType.is_combinational(timing_type):
+                    continue
+
+                related_pin_name = timing_info.get_attribute('related_pin')
+                assert related_pin_name is not None, f"Pin {port_name} in cell {self.name} does not have a related_pin attribute"
+                from_pin = self.pins.get(related_pin_name.value)
+                assert from_pin is not None, f"Related pin {related_pin_name.value} for pin {port_name} in cell {self.name} not found"
+                
+                timing_sense = timing_info.get_attribute('timing_sense')
+                timing_sense = EnumTimingSense.to_enum(timing_sense) if timing_sense is not None else None
+
+                cell_rise = Cell.get_group(timing_info, 'cell_rise')
+                cell_fall = Cell.get_group(timing_info, 'cell_fall')
+                rise_transition = Cell.get_group(timing_info, 'rise_transition')
+                fall_transition = Cell.get_group(timing_info, 'fall_transition')
+                rise_constraint = Cell.get_group(timing_info, 'rise_constraint')
+                fall_constraint = Cell.get_group(timing_info, 'fall_constraint')
+
+                arc_factory.create_arc(timing_type,
+                                        timing_sense,
+                                        from_pin,
+                                        to_pin,
+                                        cell_rise,
+                                        cell_fall,
+                                        rise_transition,
+                                        fall_transition,
+                                        rise_constraint,
+                                        fall_constraint)

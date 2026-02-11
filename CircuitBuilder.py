@@ -50,7 +50,9 @@ class CircuitBuilder:
                                             self.zeroLut, 
                                             self.zeroLut, 
                                             self.passThroughLut, 
-                                            self.passThroughLut)
+                                            self.passThroughLut,
+                                            self.zeroLut,
+                                            self.zeroLut)
         
         return self
     
@@ -121,11 +123,11 @@ class CircuitBuilder:
                 errors.append(f"Net {net_name} is not connected")
         
         # 检查所有Arc的pin是否都存在
-        for arc_key, arc in self.arc_factory._arcs.items():
+        for arc in self.get_all_arcs():
             if arc.from_pin not in self.pin_factory._pins.values():
-                errors.append(f"Arc {arc_key} has invalid from_pin")
+                errors.append(f"Arc {arc.name} has invalid from_pin")
             if arc.to_pin not in self.pin_factory._pins.values():
-                errors.append(f"Arc {arc_key} has invalid to_pin")
+                errors.append(f"Arc {arc.name} has invalid to_pin")
         
         return errors
 
@@ -179,6 +181,10 @@ class CircuitBuilder:
     def get_all_arcs(self):
         """获取电路中所有Arc"""
         return self.arc_factory.get_all_arcs()
+    
+    def get_all_constraint_arcs(self):
+        """获取电路中所有具有时序约束的Arc"""
+        return self.arc_factory.get_all_constraint_arcs()
 
 def build_circuit(library, verilog_module):
     """构建电路的入口函数"""

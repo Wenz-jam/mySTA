@@ -1,3 +1,4 @@
+import sys
 import pygraphviz as pgv
 
 import Arc
@@ -9,22 +10,27 @@ SIGNIFICANT_DIGITS = 10
 
 def format_capacitance(pin: Pin):
     buffer = []
-    FOREACH_EL_RF(lambda el, rf: buffer.append(f"c_{el}_{rf}={pin.get_capacitance(el, rf):.{SIGNIFICANT_DIGITS}f}"))
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"c_{el}_{rf}={cap if (cap := pin.get_capacitance(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
 def format_slew(pin: Pin):
     buffer = []
-    FOREACH_EL_RF(lambda el, rf: buffer.append(f"s_{el}_{rf}={pin.get_slew(el, rf):.{SIGNIFICANT_DIGITS}f}"))
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"s_{el}_{rf}={sl if (sl := pin.get_slew(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
 def format_delay(arc: Arc):
     buffer = []
-    FOREACH_EL_RF(lambda el, rf: buffer.append(f"d_{el}_{rf}={arc.get_delay(el, rf):.{SIGNIFICANT_DIGITS}f}"))
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"d_{el}_{rf}={dl if (dl := arc.get_delay(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
 def format_at(pin: Pin):
     buffer = []
     FOREACH_EL_RF(lambda el, rf: buffer.append(f"at_{el}_{rf}={at if (at := pin.get_arrival_time(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
+    return "\n".join(buffer)
+
+def format_rat(pin: Pin):
+    buffer = []
+    FOREACH_EL_RF(lambda el, rf: buffer.append(f"req_at_{el}_{rf}={rat if (rat := pin.get_request_arrival_time(el, rf)) is not None else 0.0:.{SIGNIFICANT_DIGITS}f}"))
     return "\n".join(buffer)
 
 class Visualizer:
@@ -56,15 +62,19 @@ class Visualizer:
             to_pin = arc.to_pin
             if '/' in from_pin.name:
                 cell_name = from_pin.name.split('/')[0]
-                cell_blocks[cell_name].add_node(from_pin.name, label=f"{from_pin.name.split('/')[1]}\n{format_capacitance(from_pin)}\n{format_slew(from_pin)}\n{format_at(to_pin)}")
+                cell_blocks[cell_name].add_node(from_pin.name, label=f"{from_pin.name.split('/')[1]}\n{format_capacitance(from_pin)}\n{format_slew(from_pin)}\n{format_at(from_pin)}\n{format_rat(from_pin)}")
             if '/' in to_pin.name:
                 cell_name = to_pin.name.split('/')[0]
-                cell_blocks[cell_name].add_node(to_pin.name, label=f"{to_pin.name.split('/')[1]}\n{format_capacitance(to_pin)}\n{format_slew(to_pin)}\n{format_at(to_pin)}")
-            graph.add_edge(from_pin.name, to_pin.name, label=format_delay(arc))
+                cell_blocks[cell_name].add_node(to_pin.name, label=f"{to_pin.name.split('/')[1]}\n{format_capacitance(to_pin)}\n{format_slew(to_pin)}\n{format_at(to_pin)}\n{format_rat(to_pin)}")
+            if arc.timing_sense is not None:
+                arc_label = f"{format_delay(arc)}\n{arc.timing_sense.name}"
+            else:
+                arc_label = f"None"
+            graph.add_edge(from_pin.name, to_pin.name, label=arc_label)
         graph.write('circuit.dot')
 
 
 
         # 输出到文件
         graph.write(output_file)
-        print(f"Circuit visualization saved to {output_file}")
+        print(f"Circuit visualization saved to {output_file}", file=sys.stderr)
