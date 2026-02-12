@@ -74,7 +74,7 @@ def main():
             min_nr = min(nr_ref_paths, nr_dut_paths)
             if max_nr == min_nr == 0:
                 max_nr = min_nr = 1
-            results[el][path_type]['similarity'] *= min_nr / max_nr
+            # results[el][path_type]['similarity'] *= min_nr / max_nr
             # print(nr_ref_paths, nr_dut_paths)
     print(get_design_name(verilog_file),",-,-", end=",")
     for el in EL_TYPES:

@@ -55,7 +55,8 @@ def main():
     if len(sys.argv) < 2:
         verilog_file = "/home/wenz/git/mySTA/report/gcd/gcd.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
-        verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
+        verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
+        verilog_file = "/home/wenz/git/mySTA/report/serdes_top/serdes_top.v"
     else:
         verilog_file = sys.argv[1]
     classified_dut_paths = try_run_main(verilog_file)

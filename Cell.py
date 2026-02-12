@@ -92,7 +92,7 @@ class Cell:
                 rise_constraint = Cell.get_group(timing_info, 'rise_constraint')
                 fall_constraint = Cell.get_group(timing_info, 'fall_constraint')
 
-                arc_factory.create_arc(timing_type,
+                arc = arc_factory.create_arc(timing_type,
                                         timing_sense,
                                         from_pin,
                                         to_pin,
@@ -102,3 +102,5 @@ class Cell:
                                         fall_transition,
                                         rise_constraint,
                                         fall_constraint)
+                
+                arc.sdf_cond = timing_info.get_attribute('sdf_cond')

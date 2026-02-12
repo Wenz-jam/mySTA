@@ -243,7 +243,7 @@ class Arc:
         if timing_mode == EnumTimingMode.MAX:
             delay = max_delay
         elif timing_mode == EnumTimingMode.MIN:
-            delay = min_delay
+            delay = max_delay
         # 部分路径被剪枝
         if from_pin_request_arrival_time is None or delay is None:
             return

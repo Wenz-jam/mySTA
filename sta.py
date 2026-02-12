@@ -19,6 +19,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     if __name__ == '__main__':
         verilog_file = "/home/wenz/git/mySTA/report/Booth_Multiplier/Booth_Multiplier.v"
         verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
+        verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
         # verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
@@ -64,14 +65,14 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         }
     }
 
-    Visualizer(circuit).visualize()
-
     __debug_export__["circuit"] = circuit
     __debug_export__["timer"] = timer
     
     if __name__ != '__main__':
         return classified_paths
-    
+
+    Visualizer(circuit).visualize()
+
     for el in ["max", "min"]:
         for path_type in ["in2reg","in2out","reg2reg","reg2out"]:
             paths = classified_paths[el][path_type]
