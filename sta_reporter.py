@@ -47,6 +47,7 @@ def main():
             ref_paths = classified_ref_paths[el][path_type]
             for dut_path in dut_paths:
                 dut_path_pin_names = set(info['name'] for info in dut_path)
+                dut_path_pin_names |= set([name.replace("\\","") for name in dut_path_pin_names])
                 for ref_path in ref_paths:
                     if not all(ref_pin['name'] in dut_path_pin_names for ref_pin in ref_path):
                         continue

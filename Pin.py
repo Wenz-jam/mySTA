@@ -1,6 +1,6 @@
 from enum import Enum
 
-from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, EnumClockEdge, EnumPinType, EnumTimingMode
+from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, EnumClockEdge, EnumPinType, EnumTimingMode, EnumTimingSense
 
 class Pin:
     def __init__(self, name, pin_type=None):
@@ -106,6 +106,8 @@ class Pin:
         """更新Pin的arrival_time值"""
         assert timing_mode in ALL_TIMING_MODES
         assert to_clock_edge in ALL_CLOCK_EDGES
+        assert from_arc.is_clock_edge_valid(from_clock_edge, to_clock_edge), \
+            f"Invalid clock edge transition from {from_clock_edge} to {to_clock_edge} for arc {from_arc}"
         old_at = self.get_arrival_time(timing_mode, to_clock_edge)
         if timing_mode == EnumTimingMode.MAX:
             if not old_at or arrival_time_value > old_at:

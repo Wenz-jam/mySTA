@@ -73,8 +73,10 @@ class Arc:
         self.slew_lut  = {EnumClockEdge.RISING: rise_transition, EnumClockEdge.FALLING: fall_transition}
         self.capacitance = {EnumTimingMode.MAX: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0},
                             EnumTimingMode.MIN: {EnumClockEdge.RISING: 0.0, EnumClockEdge.FALLING: 0.0}}
-        self.delay = {EnumTimingMode.MAX: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
-                        EnumTimingMode.MIN: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}
+        self.delay = {EnumTimingMode.MAX: {EnumClockEdge.RISING: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None},
+                                            EnumClockEdge.FALLING: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}},
+                        EnumTimingMode.MIN: {EnumClockEdge.RISING: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}, 
+                                             EnumClockEdge.FALLING: {EnumClockEdge.RISING: None, EnumClockEdge.FALLING: None}}}
 
         # 双向连接
         from_pin.fanout.append(self)
@@ -96,18 +98,20 @@ class Arc:
         assert capacitance_value is not None, "Capacitance value cannot be None"
         self.capacitance[timing_mode][clock_edge] = capacitance_value
 
-    def get_delay(self, timing_mode, clock_edge):
+    def get_delay(self, timing_mode, from_clock_edge, to_clock_edge):
         """获取Arc的delay值"""
         assert timing_mode in ALL_TIMING_MODES
-        assert clock_edge in ALL_CLOCK_EDGES
-        return self.delay[timing_mode][clock_edge]
+        assert from_clock_edge in ALL_CLOCK_EDGES
+        assert to_clock_edge in ALL_CLOCK_EDGES
+        return self.delay[timing_mode][from_clock_edge][to_clock_edge]
 
-    def set_delay(self, timing_mode, clock_edge, delay_value):
+    def set_delay(self, timing_mode, from_clock_edge, to_clock_edge, delay_value):
         """设置Arc的delay值"""
         assert timing_mode in ALL_TIMING_MODES
-        assert clock_edge in ALL_CLOCK_EDGES
+        assert from_clock_edge in ALL_CLOCK_EDGES
+        assert to_clock_edge in ALL_CLOCK_EDGES
         assert delay_value is not None, "Delay value cannot be None"
-        self.delay[timing_mode][clock_edge] = delay_value
+        self.delay[timing_mode][from_clock_edge][to_clock_edge] = delay_value
 
     def is_clock_edge_valid(self, from_clock_edge, to_clock_edge):
         """判断给定的from_clock_edge和to_clock_edge是否符合Arc的timing_sense"""
@@ -157,6 +161,10 @@ class Arc:
             return None
         if self.constraint_lut[to_clock_edge] is None:
             return None
+        if self.timing_type in [EnumTimingType.SETUP_RISING, EnumTimingType.SETUP_FALLING]:
+            assert timing_mode == EnumTimingMode.MAX, "Setup timing should be calculated in MAX mode"
+        if self.timing_type in [EnumTimingType.HOLD_RISING, EnumTimingType.HOLD_FALLING]:
+            assert timing_mode == EnumTimingMode.MIN, "Hold timing should be calculated in MIN mode"
         return self.constraint_lut[to_clock_edge].get_value(constrainted_pin_slew, related_pin_slew)
 
     def propagate_slew(self, timing_mode, from_clock_edge, to_clock_edge):
@@ -174,13 +182,13 @@ class Arc:
         """更新Arc的delay值，并同步更新to_pin的delay值"""
         assert self.is_clock_edge_valid(from_clock_edge, to_clock_edge), \
             f"Invalid clock edge transition from {from_clock_edge} to {to_clock_edge} for timing sense {self.timing_sense}"
-        old_value = self.get_delay(timing_mode, to_clock_edge)
+        old_value = self.get_delay(timing_mode, from_clock_edge, to_clock_edge)
         if timing_mode == EnumTimingMode.MAX:
             if not old_value or delay > old_value:
-                self.set_delay(timing_mode, to_clock_edge, delay)
+                self.set_delay(timing_mode, from_clock_edge, to_clock_edge, delay)
         elif timing_mode == EnumTimingMode.MIN:
             if not old_value or delay < old_value:
-                self.set_delay(timing_mode, to_clock_edge, delay)
+                self.set_delay(timing_mode, from_clock_edge, to_clock_edge, delay)
         else:
             raise ValueError(f"Unknown timing mode: {timing_mode}")
 
@@ -200,7 +208,7 @@ class Arc:
         if not self.is_clock_edge_valid(from_clock_edge, to_clock_edge):
             return
         from_pin_arrival_time = self.from_pin.get_arrival_time(timing_mode, from_clock_edge)
-        delay = self.get_delay(timing_mode, to_clock_edge)
+        delay = self.get_delay(timing_mode, from_clock_edge, to_clock_edge)
         # 部分路径被剪枝
         if from_pin_arrival_time is None or delay is None:
             return
@@ -218,14 +226,14 @@ class Arc:
             if timing_mode != EnumTimingMode.MIN:
                 return
         from_pin_request_arrival_time = self.from_pin.get_arrival_time(timing_mode, from_clock_edge)
-        def get_delay(timing_mode):
-            constrainted_pin_slew = self.to_pin.get_slew(timing_mode, to_clock_edge)
+        def get_delay(_timing_mode):
+            constrainted_pin_slew = self.to_pin.get_slew(_timing_mode, to_clock_edge)
             if constrainted_pin_slew == None:
-                print(f"Warning: Constrainted pin slew is None for {self.to_pin.name} at {timing_mode} {to_clock_edge}, using 0.0 instead", file=sys.stderr)
+                print(f"Warning: Constrainted pin slew is None for {self.to_pin.name} at {_timing_mode} {to_clock_edge}, using 0.0 instead", file=sys.stderr)
                 constrainted_pin_slew = 0.0
-            related_pin_slew = self.from_pin.get_slew(timing_mode, from_clock_edge)
+            related_pin_slew = self.from_pin.get_slew(_timing_mode, from_clock_edge)
             if related_pin_slew == None:
-                print(f"Warning: Related pin slew is None for {self.from_pin.name} at {timing_mode} {from_clock_edge}, using 0.0 instead", file=sys.stderr)
+                print(f"Warning: Related pin slew is None for {self.from_pin.name} at {_timing_mode} {from_clock_edge}, using 0.0 instead", file=sys.stderr)
                 related_pin_slew = 0.0
             delay = self.calc_request_arrival_time(timing_mode, from_clock_edge, to_clock_edge, constrainted_pin_slew, related_pin_slew)
             return delay
@@ -233,9 +241,9 @@ class Arc:
         min_delay = get_delay(EnumTimingMode.MIN)
         max_delay , min_delay = max(max_delay, min_delay), min(max_delay, min_delay)
         if timing_mode == EnumTimingMode.MAX:
-            delay = min_delay
-        elif timing_mode == EnumTimingMode.MIN:
             delay = max_delay
+        elif timing_mode == EnumTimingMode.MIN:
+            delay = min_delay
         # 部分路径被剪枝
         if from_pin_request_arrival_time is None or delay is None:
             return

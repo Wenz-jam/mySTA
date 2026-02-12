@@ -20,8 +20,9 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         verilog_file = "/home/wenz/git/mySTA/report/Booth_Multiplier/Booth_Multiplier.v"
         verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
-        verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
         # verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
         # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
         # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
@@ -63,7 +64,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         }
     }
 
-    # Visualizer(circuit).visualize()
+    Visualizer(circuit).visualize()
 
     __debug_export__["circuit"] = circuit
     __debug_export__["timer"] = timer
@@ -84,7 +85,9 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
                     at = info['at']
                     incr = at - last_at
                     last_at = at
-                    print(f"{name:<15} {clock_edge:<2} delay: {incr:.10f} ns, total_delay: {at:.10f} ns")
+                    pin: Pin = info['pin']
+                    cap = pin.get_capacitance(EnumTimingMode.to_enum(el), clock_edge)
+                    print(f"{name:<15} cap: {cap:.10f} incr: {incr:.10f} ns, total_delay: {at:.10f} {clock_edge:<2}")
                 print("-"*60)
 
 if __name__ == '__main__':
