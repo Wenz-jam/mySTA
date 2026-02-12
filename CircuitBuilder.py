@@ -1,4 +1,5 @@
 from collections import defaultdict
+import sys
 
 from Arc import ArcFactory, PassThroughLut, ZeroLut
 from Cell import Cell
@@ -36,6 +37,9 @@ class CircuitBuilder:
         
         # 步骤4: 分三步为每个Cell创建Pin、连接Net、创建Arc
         self._process_cells()
+
+        # 步骤5: 处理assign语句
+        self._process_assignments()
 
         for net in self.net_factory.get_all_nets():
             from_pin = net.source
@@ -84,7 +88,12 @@ class CircuitBuilder:
     
     def _create_cells(self, instances):
         """创建所有Cell对象"""
+        self.assign_instances = []
         for instance_name, instance in instances.items():
+            if instance['module'] == "__assign__":
+                # 这里不处理assign语句
+                self.assign_instances.append((instance_name, instance))
+                continue
             cell = Cell(instance_name, instance, self.library)
             self.cells.append(cell)
     
@@ -102,6 +111,21 @@ class CircuitBuilder:
         for cell in self.cells:
             cell.create_arcs(self.arc_factory)
     
+    def _process_assignments(self):
+        """处理assign语句，创建对应的Arc"""
+        for instance_name, instance in self.assign_instances:
+            lhs, rhs = instance['portlist'][0]
+            lnet = self.net_factory.get_net(lhs)
+            rnet = self.net_factory.get_net(rhs)
+            if not lnet or not rnet:
+                print(f"Warning: assign statement {instance_name} has invalid nets", file=sys.stderr)
+                continue
+            source_pin = rnet.source
+            assert source_pin is not None, f"Right-hand side net {rhs} in assign {instance_name} has no source pin"
+            assert lnet.source is None, f"Left-hand side net {lhs} in assign {instance_name} already has a source pin"
+            lnet.set_source(source_pin)
+
+
     def get_statistics(self):
         """获取电路统计信息"""
         return {
@@ -174,6 +198,7 @@ class CircuitBuilder:
     def get_all_nets(self):
         """获取电路中所有Net"""
         return self.net_factory.get_all_nets()
+
     def get_net(self, net_name):
         """根据名称获取Net"""
         return self.net_factory.get_net(net_name)
@@ -185,6 +210,13 @@ class CircuitBuilder:
     def get_all_constraint_arcs(self):
         """获取电路中所有具有时序约束的Arc"""
         return self.arc_factory.get_all_constraint_arcs()
+
+    def get_cell(self, cell_name):
+        """根据名称获取Cell"""
+        for cell in self.cells:
+            if cell.name == cell_name:
+                return cell
+        return None
 
 def build_circuit(library, verilog_module):
     """构建电路的入口函数"""

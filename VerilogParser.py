@@ -78,6 +78,7 @@ class VerilogParser:
             Output: self._handle_output,
             Wire: self._handle_wire,
             Instance: self._handle_instance,
+            Assign: self._handle_assign,
         }
     
     @staticmethod
@@ -149,6 +150,12 @@ class VerilogParser:
         portlist = [(port.portname, port.argname.name) for port in node.portlist]
         self.current_module.add_instance(instance_name, module_name, portlist)
     
+    def _handle_assign(self, node: Assign) -> None:
+        """处理连续赋值"""
+        left = node.left.var.name
+        right = node.right.var.name
+        self.current_module.add_instance(f"__assign_{right}__to__{left}", "__assign__", [(left, right)])
+
     def _parse_ast(self, node):
         """递归遍历AST"""
         node_type = type(node)
