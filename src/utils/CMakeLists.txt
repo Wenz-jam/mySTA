@@ -1,0 +1,6 @@
+add_subdirectory(log)
+add_subdirectory(stdBase)
+add_subdirectory(string)
+add_subdirectory(verilog)
+add_subdirectory(liberty)
+# add_subdirectory(json)

@@ -1,0 +1,6 @@
+[submodule "src/third-party/abseil-cpp"]
+	path = src/third-party/abseil-cpp
+	url = git@ssh.github.com:abseil/abseil-cpp.git
+[submodule "src/third-party/json"]
+	path = src/third-party/json
+	url = git@ssh.github.com:nlohmann/json.git

@@ -1,16 +1,17 @@
 # Ignore all files
 **
-
+!*/
 # Allow gitignore file
 !.gitignore
 
 # Allow C/C++ source and header files
 !*.cc
 !*.h
+!*.hh
 !*.hpp
 
 # Allow CMake files
-!.cmake
+!*.cmake
 !CMakeLists.txt
 
 # Allow Python files
@@ -20,3 +21,7 @@ parsetab.py
 
 # Allow Markdown files
 !*.md
+
+!.clang-format
+
+build

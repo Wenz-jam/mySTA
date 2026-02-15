@@ -1,0 +1,8 @@
+**/tmp
+!*.rs
+!Cargo.toml
+!Cargo.lock
+!cbindgen.toml
+!LICENSE
+!rustfmt.toml
+!*.pest

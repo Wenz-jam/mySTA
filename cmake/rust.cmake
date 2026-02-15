@@ -1,0 +1,22 @@
+macro(ADD_RUST_PROJ PROJECT_NAME RUST_PROJECT_NAME)
+
+include(ExternalProject)
+
+ExternalProject_Add(
+    ${RUST_PROJECT_NAME}
+    PREFIX ${RUST_PROJECT_DIR}
+    SOURCE_DIR ${RUST_PROJECT_DIR}
+    BINARY_DIR ${RUST_PROJECT_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND cargo build ${RUST_BUILD_CMD_OPTION}
+    INSTALL_COMMAND ""
+    BUILD_ALWAYS 1
+    BUILD_BYPRODUCTS ${RUST_LIB_PATH}
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${HOME_RUST_COMMON})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${RUST_LIB_PATH})
+
+add_dependencies(${PROJECT_NAME} ${RUST_PROJECT_NAME})
+
+endmacro()
