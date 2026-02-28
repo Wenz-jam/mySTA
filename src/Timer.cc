@@ -20,7 +20,7 @@ Timer::Timer(Circuit& circuit, std::optional<float_t> clock_cycle, std::optional
 void Timer::update_capacitance()
 {
   LOG_INFO << "update capacitance start";
-  for (const auto& pins = _circuit.get_toposorted_pins(); auto* pin : pins) {
+  for (const auto& pins{_circuit.get_toposorted_pins()}; auto* pin : pins) {
     LOG_ASSERT(dynamic_cast<Pin*>(pin) != nullptr) << std::format("Pin is not an instance of Pin");
     const auto pin_type{pin->get_type()};
     if (pin_type == EnumPinType::PRIMARY_OUTPUT || pin_type == EnumPinType::INPUT) {
@@ -34,7 +34,7 @@ void Timer::update_capacitance()
 void Timer::propagate_slew()
 {
   LOG_INFO << "propagate slew start";
-  for (const auto& pins = _circuit.get_toposorted_pins(); auto* pin : pins) {
+  for (const auto& pins{_circuit.get_toposorted_pins()}; auto* pin : pins) {
     FOREACH_EL_FRF_TRF([pin](const auto el, const auto frf, const auto trf) { pin->propagate_slew(el, frf, trf); });
   }
   LOG_INFO << "propagate slew end";
@@ -43,7 +43,7 @@ void Timer::propagate_slew()
 void Timer::propagate_delay()
 {
   LOG_INFO << "propagate delay start";
-  for (const auto& pins = _circuit.get_toposorted_pins(); auto* pin : pins) {
+  for (const auto& pins{_circuit.get_toposorted_pins()}; auto* pin : pins) {
     FOREACH_EL_FRF_TRF([pin](const auto el, const auto frf, const auto trf) { pin->propagate_delay(el, frf, trf); });
   }
   LOG_INFO << "propagate delay end";
@@ -52,7 +52,7 @@ void Timer::propagate_delay()
 void Timer::propagate_arrival_time()
 {
   LOG_INFO << "propagate arrival time start";
-  for (const auto& pins = _circuit.get_toposorted_pins(); auto* pin : pins) {
+  for (const auto& pins{_circuit.get_toposorted_pins()}; auto* pin : pins) {
     FOREACH_EL_FRF_TRF([pin](const auto el, const auto frf, const auto trf) { pin->propagate_arrival_time(el, frf, trf); });
   }
   LOG_INFO << "propagate arrival time end";
@@ -61,12 +61,12 @@ void Timer::propagate_arrival_time()
 void Timer::propagate_request_arrival_time()
 {
   LOG_INFO << "propagate request arrival time start";
-  for (const auto& primary_outputs = _circuit.get_primary_outputs(); auto* pin : primary_outputs) {
+  for (const auto& primary_outputs{_circuit.get_primary_outputs()}; auto* pin : primary_outputs) {
     FOREACH_EL_RF(
         [this, pin](EnumTimingMode el, EnumClockEdge rf) { pin->set_request_arrival_time(el, rf, _clock_cycle + _clock_rise_at); });
   }
 
-  for (const auto& constraint_arcs = _circuit.get_constraint_arcs(); auto* arc : constraint_arcs) {
+  for (const auto& constraint_arcs{_circuit.get_constraint_arcs()}; auto* arc : constraint_arcs) {
     FOREACH_EL_FRF_TRF(
         [arc](EnumTimingMode el, EnumClockEdge frf, EnumClockEdge trf) { arc->propagate_request_arrival_time(el, frf, trf); });
   }
@@ -75,7 +75,7 @@ void Timer::propagate_request_arrival_time()
 
 void Timer::reset_arrival_time()
 {
-  for (const auto& pins = _circuit.get_all_pins(); auto* pin : pins) {
+  for (const auto& pins{_circuit.get_all_pins()}; auto* pin : pins) {
     pin->reset_all_arrival_time();
   }
 }
@@ -83,11 +83,10 @@ void Timer::reset_arrival_time()
 const Pin* Timer::deduce_clock()
 {
   if (_clock_pin == nullptr) {
-    for (const auto* cell : _circuit.get_all_cells()) {
+    for (const auto _cells{_circuit.get_all_cells()}; const auto* cell : _cells) {
       const auto& port_mapping{cell->get_port_mapping()};
       if (auto iter{port_mapping.find("CK")}; iter != port_mapping.end()) {
-        const auto& clock_pin{_circuit.find_pin(iter->second)};
-        if (clock_pin.is_primary_input()) {
+        if (const auto& clock_pin{_circuit.find_pin(iter->second)}; clock_pin.is_primary_input()) {
           _clock_pin = &clock_pin;
           return _clock_pin;
         }
@@ -111,7 +110,7 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
   std::vector<std::vector<path_t>> paths{};
   reset_arrival_time();
 
-  for (auto* pin : _circuit.get_toposorted_pins()) {
+  for (const auto& _pins{_circuit.get_toposorted_pins()}; auto* pin : _pins) {
     if (start_type == EnumPointType::IN && pin == _clock_pin) {
       continue;  // 不计算源于时钟的arc
     }
@@ -121,20 +120,20 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
     FOREACH_EL_FRF_TRF([&](auto el, auto frf, auto trf) { pin->propagate_arrival_time(el, frf, trf); });
   }
 
-  const std::vector end_points{_circuit.get_all_pins() | std::views::filter([](auto& pin) { return pin->get_fanout().size() == 0; })
-                               | std::ranges::to<std::vector<Pin*>>()};
-  for (auto* end_point : end_points) {
+  for (const std::vector end_points{_circuit.get_all_pins() | std::views::filter([](auto& pin) { return pin->get_fanout().size() == 0; })
+                                    | std::ranges::to<std::vector<Pin*>>()};
+       const auto* end_point : end_points) {
     if (end_type == EnumPointType::OUT && !end_point->is_primary_output()) {
       continue;  // 终点在DUT的输出端口, Pin类型应当是primary output
     }
     if (end_type == EnumPointType::REG && !end_point->is_input()) {
       continue;  // 终点在寄存器的D端口, Pin类型应当是input
     }
-    const auto& pin{*end_point};
-    auto atr{pin.get_arrival_time(timing_mode, EnumClockEdge::RISING)};
-    auto atf{pin.get_arrival_time(timing_mode, EnumClockEdge::FALLING)};
-    auto ratr{pin.get_request_arrival_time(timing_mode, EnumClockEdge::RISING)};
-    auto ratf{pin.get_request_arrival_time(timing_mode, EnumClockEdge::FALLING)};
+    const auto* pin{end_point};
+    auto atr{pin->get_arrival_time(timing_mode, EnumClockEdge::RISING)};
+    auto atf{pin->get_arrival_time(timing_mode, EnumClockEdge::FALLING)};
+    auto ratr{pin->get_request_arrival_time(timing_mode, EnumClockEdge::RISING)};
+    auto ratf{pin->get_request_arrival_time(timing_mode, EnumClockEdge::FALLING)};
     if (!atr or !atf or !ratr or !ratf) {
       continue;
     }
@@ -163,15 +162,15 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
     }
     std::vector<path_t> path{};
     while (true) {
-      path.emplace_back(std::string{ppin->get_name()}, edge, ppin, *(ppin->get_arrival_time(timing_mode, edge)), slack);
-      const auto predecessor{ppin->get_predecessor(timing_mode, edge)};
+      path.emplace_back(std::string{pin->get_name()}, edge, pin, *(pin->get_arrival_time(timing_mode, edge)), slack);
+      const auto predecessor{pin->get_predecessor(timing_mode, edge)};
       if (!predecessor) {
         std::ranges::reverse(path);
         paths.push_back(path);
         break;
       }
       edge = predecessor->first;
-      ppin = predecessor->second->from_pin();
+      pin = predecessor->second->from_pin();
     }
   }
 
