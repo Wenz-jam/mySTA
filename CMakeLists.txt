@@ -16,6 +16,8 @@ target_link_libraries(mySTA
 
 target_compile_features(mySTA PRIVATE cxx_std_23)
 
+target_compile_options(mySTA PRIVATE -Wall -Wextra -Werror)
+
 include(cmake/settings.cmake)
 include(cmake/rust.cmake)
 
