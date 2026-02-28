@@ -27,6 +27,8 @@ constexpr void FOREACH_EL_RF(F&& func)
   }
 }
 
+constexpr std::size_t FOREAC_EL_RF_TIMES {ALL_TIMING_MODES.size() * ALL_CLOCK_EDGES.size()};
+
 template <ThreeArgHandler F>
 void FOREACH_EL_FRF_TRF(F&& func)
 {
@@ -35,6 +37,9 @@ void FOREACH_EL_FRF_TRF(F&& func)
     func(timing_mode, from_clock_edge, to_clock_edge);
   }
 }
+
+constexpr std::size_t FOREACH_EL_FRF_TRF_TIMES {ALL_TIMING_MODES.size() * ALL_CLOCK_EDGES.size() * ALL_CLOCK_EDGES.size()};
+
 }  // namespace mySTA
 
 #endif  // MYSTA_ENUMFOREACH_H
