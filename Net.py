@@ -9,6 +9,7 @@ class Net:
         return f"Net({self.name}, source={self.source}, sinks={len(self.sinks)})"
     
     def set_source(self, pin):
+        assert self.source is None, f"Net {self.name} already has a source"
         self.source = pin
         pin.net = self
     
