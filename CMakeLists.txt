@@ -20,3 +20,4 @@ include(cmake/settings.cmake)
 include(cmake/rust.cmake)
 
 add_subdirectory(src)
+add_subdirectory(include)
