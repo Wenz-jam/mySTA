@@ -38,7 +38,7 @@ extern "C" {
 /**
  * The wire or port declaration.
  */
-typedef enum DclType
+enum class DclType
 {
   KInput = 0,
   KInout = 1,
@@ -49,7 +49,32 @@ typedef enum DclType
   KWand = 6,
   KWire = 7,
   KWor = 8,
-} DclType;
+};
+
+constexpr const char* dclTypeToString(DclType e) noexcept
+{
+  switch (e) {
+    case DclType::KInput:
+      return "KInput";
+    case DclType::KInout:
+      return "KInout";
+    case DclType::KOutput:
+      return "KOutput";
+    case DclType::KSupply0:
+      return "KSupply0";
+    case DclType::KSupply1:
+      return "KSupply1";
+    case DclType::KTri:
+      return "KTri";
+    case DclType::KWand:
+      return "KWand";
+    case DclType::KWire:
+      return "KWire";
+    case DclType::KWor:
+      return "KWor";
+  }
+  return "Unknown";
+}
 
 typedef struct Rc_RefCell_VerilogModule Rc_RefCell_VerilogModule;
 
@@ -122,6 +147,11 @@ typedef struct RustVerilogModule
   struct RustVec port_list;
   struct RustVec module_stmts;
 } RustVerilogModule;
+
+typedef struct RustVerilogBaseStmt
+{
+  uintptr_t line_no;
+} RustVerilogBaseStmt;
 
 typedef struct CRange
 {
@@ -251,6 +281,8 @@ bool rust_is_constant(void* c_verilog_virtual_base_net_expr);
  * @return struct RustVerilogModule*
  */
 struct RustVerilogModule* rust_convert_raw_verilog_module(void* verilog_module);
+
+struct RustVerilogBaseStmt* rust_convert_verilog_base_stmt(void* c_verilog_stmt);
 
 struct RustVerilogDcl* rust_convert_verilog_dcl(void* c_verilog_dcl_struct);
 

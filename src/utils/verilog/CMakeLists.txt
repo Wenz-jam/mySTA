@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
 
-set (CMAKE_CXX_STANDARD 20)
-
-set(CMAKE_BUILD_TYPE "Release")
-
 if(BUILD_STATIC_LIB)
   # This is a workaround on cmake 3.22.1, should ensure static libraries are used
   # Note: There is a better approach in newer versions of CMake:
@@ -49,6 +45,8 @@ target_link_libraries(verilog PRIVATE ZLIB::ZLIB)
 set(RUST_PROJECT_NAME verilog_parser)
 set(RUST_PROJECT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/verilog-rust/verilog-parser)
 set(RUST_LIB_TYPE a)
+
+target_compile_features(verilog PRIVATE cxx_std_20)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     set(RUST_LIB_PATH ${RUST_PROJECT_DIR}/target/debug/lib${RUST_PROJECT_NAME}.${RUST_LIB_TYPE})

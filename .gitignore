@@ -25,3 +25,4 @@ parsetab.py
 !.clang-format
 
 build
+.idea/

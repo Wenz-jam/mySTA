@@ -78,6 +78,10 @@ typedef struct RustVerilogModule {
     struct RustVec module_stmts;
 } RustVerilogModule;
 
+typedef struct RustVerilogBaseStmt {
+    uintptr_t line_no;
+} RustVerilogBaseStmt;
+
 typedef struct CRange {
     bool has_value;
     int32_t start;
@@ -155,6 +159,8 @@ bool rust_is_concat_expr(void *c_verilog_virtual_base_net_expr);
 bool rust_is_constant(void *c_verilog_virtual_base_net_expr);
 
 struct RustVerilogModule *rust_convert_raw_verilog_module(struct VerilogModule *verilog_module);
+
+struct RustVerilogBaseStmt *rust_convert_verilog_base_stmt(void *c_verilog_stmt);
 
 struct RustVerilogDcl *rust_convert_verilog_dcl(void *c_verilog_dcl_struct);
 

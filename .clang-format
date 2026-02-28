@@ -48,4 +48,4 @@ BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Custom
 DerivePointerAlignment: false
 SpaceAfterCStyleCast: true
-Standard: c++23
+Standard: c++20

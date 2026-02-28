@@ -14,7 +14,7 @@ ExternalProject_Add(
     BUILD_BYPRODUCTS ${RUST_LIB_PATH}
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${HOME_RUST_COMMON})
+target_include_directories(${PROJECT_NAME} PUBLIC ${HOME_RUST_COMMON})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${RUST_LIB_PATH})
 
 add_dependencies(${PROJECT_NAME} ${RUST_PROJECT_NAME})

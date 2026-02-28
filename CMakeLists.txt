@@ -7,11 +7,14 @@ add_executable(mySTA)
 target_sources(mySTA
     PRIVATE
         src/main.cc
+        src/Parser/VerilogParser.cc
+        src/Parser/VerilogModule.cc
 )
 
 target_link_libraries(mySTA 
     PRIVATE
         log
+        verilog
 )
 
 target_compile_features(mySTA PRIVATE cxx_std_23)

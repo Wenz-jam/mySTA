@@ -314,6 +314,21 @@ pub extern "C" fn rust_convert_raw_verilog_module(
 }
 
 #[repr(C)]
+pub struct RustVerilogBaseStmt {
+    line_no: usize
+}
+
+#[no_mangle]
+pub extern "C" fn rust_convert_verilog_base_stmt(c_verilog_stmt: *mut c_void) -> *mut RustVerilogBaseStmt {
+    let verilog_stmt = unsafe { &mut *(c_verilog_stmt as *mut Box<dyn verilog_data::VerilogVirtualBaseStmt>) };
+    let line_no = (*verilog_stmt).get_line_no();
+    let rust_verilog_base_stmt = RustVerilogBaseStmt { line_no };
+    let rust_verilog_base_stmt_pointer = Box::new(rust_verilog_base_stmt);
+
+    Box::into_raw(rust_verilog_base_stmt_pointer)
+}
+
+#[repr(C)]
 pub struct RustVerilogDcl {
     line_no: usize,
     dcl_type: verilog_data::DclType,

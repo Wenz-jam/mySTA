@@ -943,7 +943,7 @@ pub fn parse_verilog_file(verilog_file_path: &str) -> verilog_data::VerilogFile 
 pub extern "C" fn rust_parse_verilog(verilog_path: *const c_char) -> *mut c_void {
     let c_str_verilog_path = unsafe { std::ffi::CStr::from_ptr(verilog_path) };
     let r_str_verilog_path = c_str_verilog_path.to_string_lossy().into_owned();
-    println!("r str {}", r_str_verilog_path);
+    // println!("r str {}", r_str_verilog_path);
 
     let verilog_file = parse_verilog_file(&r_str_verilog_path);
 

@@ -27,14 +27,14 @@ template <typename T>
 class RustVecIterator
 {
  public:
-  explicit RustVecIterator(RustVec* rust_vec) : _rust_vec(rust_vec) {}
+  explicit RustVecIterator(const RustVec* rust_vec) : _rust_vec(rust_vec) {}
   ~RustVecIterator() = default;
 
   bool hasNext() { return _index < _rust_vec->len; }
   T* next();
 
  private:
-  RustVec* _rust_vec;
+  const RustVec* _rust_vec;
   uintptr_t _index = 0;
 };
 
