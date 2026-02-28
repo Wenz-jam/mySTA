@@ -15,10 +15,10 @@
 
 #include "CircuitBuilder.h"    // 包含 Pin, Arc, CircuitBuilder, CellLib 等定义
 #include "Enum/EnumForeach.h"  // 包含枚举类型和重载的 operator*
-#define  agset(...) agsafeset(__VA_ARGS__, const_cast<char*>(""))
+#define agset(...) agsafeset(__VA_ARGS__, const_cast<char*>(""))
 namespace mySTA {
 
-namespace {  // 匿名命名空间，辅助函数仅在此文件内可见
+namespace {
 
 constexpr int SIGNIFICANT_DIGITS = 10;
 
@@ -47,61 +47,71 @@ std::string get_port_name(const Pin& pin)
 // 格式化电容
 std::string format_capacitance(const Pin& pin)
 {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(SIGNIFICANT_DIGITS);
-  FOREACH_EL_RF(
-      [&](EnumTimingMode tm, EnumClockEdge ce) { oss << "c_" << *tm << "_" << *ce << "=" << pin.get_capacitance(tm, ce) << "\n"; });
-  return oss.str();
+  constexpr std::size_t FORMATED_STR_SIZE{std::string_view{"c_max_r=\n"}.size() + std::numeric_limits<float_t>::max_digits10};
+  constexpr std::size_t RET_SIZE{FORMATED_STR_SIZE * FOREAC_EL_RF_TIMES};
+  std::string ret{};
+  ret.reserve(RET_SIZE);
+  auto bt{std::back_inserter(ret)};
+  FOREACH_EL_RF([&](const auto el, const auto rf) {
+    std::format_to(bt, "c_{}_{}={:.{}f}\n", *el, *rf, pin.get_capacitance(el, rf), SIGNIFICANT_DIGITS);
+  });
+  return ret;
 }
 
 // 格式化压摆
 std::string format_slew(const Pin& pin)
 {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(SIGNIFICANT_DIGITS);
-  FOREACH_EL_RF([&](EnumTimingMode tm, EnumClockEdge ce) {
-    auto slew = pin.get_slew(tm, ce);
-    oss << "s_" << *tm << "_" << *ce << "=" << (slew.has_value() ? *slew : 0.0) << "\n";
+  constexpr std::size_t FORMATED_STR_SIZE{std::string_view{"s_max_r=\n"}.size() + std::numeric_limits<float_t>::max_digits10};
+  constexpr std::size_t RET_SIZE{FORMATED_STR_SIZE * FOREAC_EL_RF_TIMES};
+  std::string ret{};
+  ret.reserve(RET_SIZE);
+  auto bt{std::back_inserter(ret)};
+  FOREACH_EL_RF([&](const auto el, const auto rf) {
+    std::format_to(bt, "s_{}_{}={:.{}f}\n", *el, *rf, pin.get_slew(el, rf).value_or(0), SIGNIFICANT_DIGITS);
   });
-  return oss.str();
+  return ret;
 }
 
 // 格式化延迟（针对时序弧）
 std::string format_delay(const Arc& arc)
 {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(SIGNIFICANT_DIGITS);
-  FOREACH_EL_FRF_TRF([&](EnumTimingMode tm, EnumClockEdge fce, EnumClockEdge tce) {
-    auto delay = arc.get_delay(tm, fce, tce);
-    if (delay.has_value()) {
-      oss << "d_" << *tm << "_" << *fce << "_" << *tce << "=" << *delay << "\n";
-    }
+  constexpr std::size_t FORMATED_STR_SIZE{std::string_view{"s_max_r_r=\n"}.size() + std::numeric_limits<float_t>::max_digits10};
+  constexpr std::size_t RET_SIZE{FORMATED_STR_SIZE * FOREACH_EL_FRF_TRF_TIMES};
+  std::string ret{};
+  ret.reserve(RET_SIZE);
+  auto bt{std::back_inserter(ret)};
+  FOREACH_EL_FRF_TRF([&](const auto el, const auto frf, const auto trf) {
+    std::format_to(bt, "d_{}_{}_{}={:.{}f}", *el, *frf, *trf, arc.get_delay(el, frf, trf).value_or(0), SIGNIFICANT_DIGITS);
   });
-  return oss.str();
+  return ret;
 }
 
 // 格式化到达时间
 std::string format_at(const Pin& pin)
 {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(SIGNIFICANT_DIGITS);
-  FOREACH_EL_RF([&](EnumTimingMode tm, EnumClockEdge ce) {
-    auto at = pin.get_arrival_time(tm, ce);
-    oss << "at_" << *tm << "_" << *ce << "=" << (at.has_value() ? *at : 0.0) << "\n";
+  constexpr std::size_t FORMATED_STR_SIZE{std::string_view{"at_max_r=\n"}.size() + std::numeric_limits<float_t>::max_digits10};
+  constexpr std::size_t RET_SIZE{FORMATED_STR_SIZE * FOREAC_EL_RF_TIMES};
+  std::string ret{};
+  ret.reserve(RET_SIZE);
+  auto bt{std::back_inserter(ret)};
+  FOREACH_EL_RF([&](const EnumTimingMode el, const EnumClockEdge rf) {
+    std::format_to(bt, "at_{}_{}={:.{}f}\n", *el, *rf, pin.get_arrival_time(el, rf).value_or(0), SIGNIFICANT_DIGITS);
   });
-  return oss.str();
+  return ret;
 }
 
 // 格式化需求到达时间
 std::string format_rat(const Pin& pin)
 {
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(SIGNIFICANT_DIGITS);
-  FOREACH_EL_RF([&](EnumTimingMode tm, EnumClockEdge ce) {
-    auto rat = pin.get_request_arrival_time(tm, ce);
-    oss << "req_at_" << *tm << "_" << *ce << "=" << (rat.has_value() ? *rat : 0.0) << "\n";
+  constexpr std::size_t FORMATED_STR_SIZE{std::string_view{"req_at_max_r=\n"}.size() + std::numeric_limits<float_t>::max_digits10};
+  constexpr std::size_t RET_SIZE{FORMATED_STR_SIZE * FOREAC_EL_RF_TIMES};
+  std::string ret{};
+  ret.reserve(RET_SIZE);
+  auto bt{std::back_inserter(ret)};
+  FOREACH_EL_RF([&](const EnumTimingMode tm, const EnumClockEdge ce) {
+    std::format_to(bt, "req_at_{}_{}={:.{}f}", *tm, *ce, pin.get_request_arrival_time(tm, ce).value_or(0), SIGNIFICANT_DIGITS);
   });
-  return oss.str();
+  return ret;
 }
 
 }  // namespace
@@ -161,8 +171,8 @@ void Visualizer::visualize_path(const std::vector<PathInfo>& path)
         } else {
           arc_label += "\nNone";
         }
-        std::string arc_name {arc->get_name()};
-        auto* edge = agedge(subg, agnode(subg, (char*) std::string(from_pin->get_name()).c_str(), 0), node, (char*)arc_name.c_str(), 1);
+        std::string arc_name{arc->get_name()};
+        auto* edge = agedge(subg, agnode(subg, (char*) std::string(from_pin->get_name()).c_str(), 0), node, (char*) arc_name.c_str(), 1);
         agset(edge, (char*) "label", (char*) arc_label.c_str());
       }
     }
@@ -190,9 +200,9 @@ void Visualizer::visualize_path(const std::vector<PathInfo>& path)
       }
       if (found_arc) {
         std::string arc_label = format_delay(*found_arc);
-        std::string arc_name {found_arc->get_name()};
+        std::string arc_name{found_arc->get_name()};
         auto* edge = agedge(graph, agnode(graph, (char*) std::string(last_pin->get_name()).c_str(), 0),
-               agnode(graph, (char*) std::string(pin->get_name()).c_str(), 0), (char*) arc_name.c_str(), 1);
+                            agnode(graph, (char*) std::string(pin->get_name()).c_str(), 0), (char*) arc_name.c_str(), 1);
         agset(edge, (char*) "label", (char*) arc_label.c_str());
       }
     }
@@ -292,7 +302,7 @@ void Visualizer::visualize(const std::string& output_file)
   // 写入文件
   FILE* file = fopen(output_file.c_str(), "w+");
   LOG_ASSERT(file);
-  agwrite(graph, (void*)file);
+  agwrite(graph, (void*) file);
   agclose(graph);
 }
 
