@@ -34,15 +34,15 @@
 
 #include "Array.hh"
 #include "BTreeMap.hh"
+#include "Config.hh"
 #include "FlatMap.hh"
 #include "FlatSet.hh"
 #include "LibParserRustC.hh"
-#include "Vector.hh"
-#include "Config.hh"
-#include "Type.hh"
 #include "Log.hh"
 #include "Str.hh"
 #include "StrMap.hh"
+#include "Type.hh"
+#include "Vector.hh"
 
 namespace ista {
 
@@ -189,7 +189,7 @@ class LibTable : public LibObject
   TableType _table_type;                                     //!< The table type.
 
   CornerType _corner_type = CornerType::kDefault;
-  LibLutTableTemplate* _table_template;  //!< The lut template.
+  LibLutTableTemplate* _table_template{};  //!< The lut template.
 
   FORBIDDEN_COPY(LibTable);
 };
@@ -822,7 +822,7 @@ class LibArc : public LibObject
   void set_owner_cell(LibCell* ower_cell) { _owner_cell = ower_cell; }
   LibCell* get_owner_cell() { return _owner_cell; }
 
-  void set_is_disable_arc() { _is_disable_arc = 1;}
+  void set_is_disable_arc() { _is_disable_arc = 1; }
   unsigned isDisableArc() { return _is_disable_arc; }
 
   unsigned isCheckArc();
@@ -841,7 +841,7 @@ class LibArc : public LibObject
 
   unsigned isNegativeArc() { return _timing_sense == TimingSense::kNegativeUnate; }
 
-  unsigned isNonUnateArc() { return _timing_sense == TimingSense::kNonUnate;}
+  unsigned isNonUnateArc() { return _timing_sense == TimingSense::kNonUnate; }
 
   unsigned isSetupArc() { return (_timing_type == TimingType::kSetupRising) || (_timing_type == TimingType::kSetupFalling); }
 
@@ -892,7 +892,7 @@ class LibArc : public LibObject
 
   static BTreeMap<std::string, TimingType> _str_to_type;
 
-  unsigned _is_disable_arc = 0; //!< Forbidden arc.
+  unsigned _is_disable_arc = 0;  //!< Forbidden arc.
 
   FORBIDDEN_COPY(LibArc);
 };
@@ -915,7 +915,8 @@ class LibArcSet
   LibArc* front() { return _arcs.front().get(); }
   auto& get_arcs() { return _arcs; }
 
-  std::vector<double> getDelayOrConstrainCheckNs(TransType input_trans_type, TransType output_trans_type, double slew, double load_or_constrain_slew);
+  std::vector<double> getDelayOrConstrainCheckNs(TransType input_trans_type, TransType output_trans_type, double slew,
+                                                 double load_or_constrain_slew);
   std::vector<double> getSlewNs(TransType input_trans_type, TransType output_trans_type, double slew, double load);
   bool isMatchTimingType(TransType trans_type);
 
@@ -925,7 +926,7 @@ class LibArcSet
   unsigned isTwoTypeSenseArcSet();
 
  private:
-  Vector<std::unique_ptr<LibArc>> _arcs;
+  std::vector<std::unique_ptr<LibArc>> _arcs;
 
   FORBIDDEN_COPY(LibArcSet);
 };

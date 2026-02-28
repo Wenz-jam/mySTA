@@ -346,7 +346,7 @@ pub fn parse_lib_file(lib_file_path: &str) -> Result<liberty_data::LibertyParser
 pub extern "C" fn rust_parse_lib(lib_path: *const c_char) -> *mut c_void {
     let c_str = unsafe { std::ffi::CStr::from_ptr(lib_path) };
     let r_str = c_str.to_string_lossy().into_owned();
-    println!("rust read lib file {}", r_str);
+    // println!("rust read lib file {}", r_str);
 
     let lib_file = parse_lib_file(&r_str);
     if let liberty_data::LibertyParserData::GroupStmt(lib_file_group) = lib_file.unwrap() {

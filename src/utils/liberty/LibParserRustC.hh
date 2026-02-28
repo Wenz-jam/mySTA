@@ -351,17 +351,18 @@ class RustLibertyExprBuilder
 class RustLibertyReader
 {
  public:
-  explicit RustLibertyReader(const char* file_name) : _file_name(file_name) {}
+  explicit RustLibertyReader(const char* file_name) : _file_name(file_name), _library_builder(nullptr) {}
+  explicit RustLibertyReader(const std::string_view file_name) : _file_name(file_name), _library_builder(nullptr) {}
   ~RustLibertyReader() = default;
 
   RustLibertyReader(RustLibertyReader&& other) noexcept = default;
   RustLibertyReader& operator=(RustLibertyReader&& rhs) noexcept = default;
 
-  void set_build_cells(std::set<std::string>& build_cells) {
+  void set_build_cells(const std::unordered_set<std::string>& build_cells) {
     _build_cells = build_cells;
   }
   auto& get_build_cells() { return _build_cells; }
-  bool isNeedBuild(std::string cell_name)
+  bool isNeedBuild(const std::string& cell_name)
   {
     if (_build_cells.empty()) {
       return true;
@@ -403,7 +404,7 @@ class RustLibertyReader
   unsigned visitStmtInGroup(RustLibertyGroupStmt* group);
 
   void* _lib_file = nullptr;           //!< The parsered lib file.
-  std::set<std::string> _build_cells;  //!< The needed cells.
+  std::unordered_set<std::string> _build_cells;  //!< The needed cells.
 
   std::string _file_name;        //!< The liberty file name.
   LibBuilder* _library_builder;  //!< The liberty library builder.

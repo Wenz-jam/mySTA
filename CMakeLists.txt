@@ -9,12 +9,14 @@ target_sources(mySTA
         src/main.cc
         src/Parser/VerilogParser.cc
         src/Parser/VerilogModule.cc
+        src/Parser/LibertyParser.cc
 )
 
 target_link_libraries(mySTA 
     PRIVATE
         log
         verilog
+        liberty
 )
 
 target_compile_features(mySTA PRIVATE cxx_std_23)
