@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.23)
 
 project(mySTA)
 
-add_executable(mySTA)
+add_executable(mySTA
+        src/Visualizer.cc
+        include/Visualizer.h)
 
 target_sources(mySTA
     PRIVATE
@@ -25,6 +27,11 @@ target_link_libraries(mySTA
         verilog
         liberty
 )
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GRAPHVIZ REQUIRED libcgraph libcdt)
+target_include_directories(mySTA PRIVATE ${GRAPHVIZ_INCLUDE_DIRS})
+target_link_libraries(mySTA PRIVATE ${GRAPHVIZ_LIBRARIES})
 
 target_compile_features(mySTA PRIVATE cxx_std_23)
 

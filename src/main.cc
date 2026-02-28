@@ -10,6 +10,7 @@
 #include "Parser/LibertyParser.h"
 #include "Parser/VerilogParser.h"
 #include "Timer.h"
+#include "Visualizer.h"
 
 int main(int argc, char* argv[])
 {
@@ -55,5 +56,7 @@ int main(int argc, char* argv[])
   timer.report_timing(mySTA::EnumTimingMode::MIN, mySTA::EnumPointType::IN, mySTA::EnumPointType::OUT);
   timer.report_timing(mySTA::EnumTimingMode::MIN, mySTA::EnumPointType::REG, mySTA::EnumPointType::REG);
   timer.report_timing(mySTA::EnumTimingMode::MIN, mySTA::EnumPointType::REG, mySTA::EnumPointType::OUT);
+  mySTA::Visualizer visualizer{circuit};
+  visualizer.visualize("c_circuit.dot");
   return 0;
 }
