@@ -1,17 +1,46 @@
-from CircuitBuilder import CircuitBuilder
-from sta import main as sta_main
+# from CircuitBuilder import CircuitBuilder
+# from sta import main as sta_main
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt2csv import hash_path, get_design_name
-from sta_checker import classify_ref_path, try_run_main
+# from sta_checker import classify_ref_path, try_run_main
+import msgpack
 
 import sys
 import glob
 import re
 import hashlib
+import json5
 
 EL_TYPES = ["max", "min"]
 PATH_TYPES = ["in2out", "in2reg", "reg2reg", "reg2out"]
+
+def classify_ref_path(all_paths):
+    ret = {"max": {
+            "in2out": [],
+            "in2reg": [],
+            "reg2reg": [],
+            "reg2out": [],
+    }, "min": {
+            "in2out": [],
+            "in2reg": [],
+            "reg2reg": [],
+            "reg2out": [],
+    }}
+    for path in all_paths:
+        el = path['el']
+        path_type = path['type']
+        ret[el][path_type].append(path['data'])
+    return ret
+
+def try_run_main(a):
+    # data = json5.load(sys.stdin)
+
+    data = msgpack.unpackb(sys.stdin.buffer.read())
+    # with open("/tmp/simple", "rb") as f:
+    #     data = msgpack.unpackb(f.read())
+    return data
+
 
 def main():
     if len(sys.argv) < 2:
@@ -48,9 +77,11 @@ def main():
             for dut_path in dut_paths:
                 dut_path_pin_names = set(info['name'] for info in dut_path)
                 dut_path_pin_names |= set([name.replace("\\","") for name in dut_path_pin_names])
+                find = False
                 for ref_path in ref_paths:
                     if not all(ref_pin['name'] in dut_path_pin_names for ref_pin in ref_path):
                         continue
+                    find = True
                     ref_at = float(ref_path[-1]['delay'])
                     dut_at = dut_path[-1]["at"] # (name , clock_edge, at)
                     diff = abs(dut_at - float(ref_at))
@@ -63,7 +94,8 @@ def main():
                          results[el][path_type]['diff'] = diff
                          results[el][path_type]['path'] = dut_path
                          results[el][path_type]['similarity'] = similarity
-
+                # if not find:
+                #     print(f"Warning: No matching path found for DUT path ending at {dut_path[-1]['name']} with delay {dut_path[-1]['at']:.10f} ns")
 
     for el in EL_TYPES:
         for path_type in PATH_TYPES:

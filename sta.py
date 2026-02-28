@@ -21,12 +21,13 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
         verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
         verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
-        # verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
+        verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
         # verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
-        # verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
+        verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
         # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
         # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
+        verilog_file = "./report/serdes_top/serdes_top.v"
     top_module = "top"
     parser = VerilogParser()
     modules = parser.parse_file(verilog_file)
@@ -78,7 +79,7 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
             paths = classified_paths[el][path_type]
             print(f"{el} {path_type}: {len(paths)} paths")
             for path in paths:
-                print("Timing Path:")
+                print(f"Timing Path(slack {path[0]['slack']:.10f}): ")
                 last_at = 0
                 for info in path:
                     name = info['name']
@@ -88,7 +89,8 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
                     last_at = at
                     pin: Pin = info['pin']
                     cap = pin.get_capacitance(EnumTimingMode.to_enum(el), clock_edge)
-                    print(f"{name:<15} cap: {cap:.10f} incr: {incr:.10f} ns, total_delay: {at:.10f} {clock_edge:<2}")
+                    slew = pin.get_slew(EnumTimingMode.to_enum(el), clock_edge)
+                    print(f"{name:<15} cap: {cap:.10f} slew: {slew:.10f} incr: {incr:.10f} ns, total_delay: {at:.10f} {clock_edge:<2}")
                 print("-"*60)
 
 if __name__ == '__main__':

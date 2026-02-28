@@ -1,17 +1,22 @@
 from Visualizer import Visualizer
-from timer import Timer
-from CircuitBuilder import CircuitBuilder
 from Pin import Pin
 from EnumClass import EnumClockEdge, EnumPinType, EnumTimingMode
-from sta import main as sta_main, __debug_export__
+# from sta import main as sta_main, __debug_export__
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt2csv import hash_path, get_design_name
+import msgpack
 
 import sys
 import glob
 import re
 import hashlib
+
 def try_run_main(verilog_file):
+    # with open("/tmp/simple", "rb") as f:
+    #     data = msgpack.unpackb(f.read())
+    # return data
+
+    return msgpack.unpackb(sys.stdin.buffer.read())
     run_in_vscode_with_debug = True
     if run_in_vscode_with_debug:
         return sta_main(verilog_file)
@@ -48,22 +53,49 @@ def classify_ref_path(all_paths):
         path_type = path['type']
         ret[el][path_type].append(path['data'])
     return ret
-            
+
+def get_path_index(start_pin_name, end_pin_name):
+    return f"{start_pin_name} -> {end_pin_name}"
+
+def index_ref_path(classified_ref_paths):
+    ret = {"max": {
+            "in2out":  {},
+            "in2reg":  {},
+            "reg2reg": {},
+            "reg2out": {},
+    }, "min": {
+            "in2out":  {},
+            "in2reg":  {},
+            "reg2reg": {},
+            "reg2out": {},
+    }}  
+    for el in EL_TYPES:
+        for path_type in PATH_TYPES:
+            ref_paths = classified_ref_paths[el][path_type]
+            for ref_path in ref_paths:
+                end_pin_name = ref_path[-1]['name']
+                start_pin_name = ref_path[0]['name']
+                index = get_path_index(start_pin_name, end_pin_name)
+                if ret[el][path_type].get(index) is not None:
+                    ret[el][path_type][index].append(ref_path)
+                else:
+                    ret[el][path_type][index] = [ref_path]
+    return ret
 
 
 def main():
     if len(sys.argv) < 2:
-        verilog_file = "/home/wenz/git/mySTA/report/gcd/gcd.v"
+        verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
-        verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
-        verilog_file = "/home/wenz/git/mySTA/report/serdes_top/serdes_top.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/serdes_top/serdes_top.v"
     else:
         verilog_file = sys.argv[1]
     classified_dut_paths = try_run_main(verilog_file)
-    circuit: CircuitBuilder = __debug_export__["circuit"]
-    timer: Timer = __debug_export__["timer"]
-    assert isinstance(circuit, CircuitBuilder), f"Expected circuit to be a CircuitBuilder instance, got {path_type(circuit)}"
-    assert isinstance(timer, Timer), f"Expected timer to be a Timer instance, got {path_type(timer)}"
+    # circuit: CircuitBuilder = __debug_export__["circuit"]
+    # timer: Timer = __debug_export__["timer"]
+    # assert isinstance(circuit, CircuitBuilder), f"Expected circuit to be a CircuitBuilder instance, got {path_type(circuit)}"
+    # assert isinstance(timer, Timer), f"Expected timer to be a Timer instance, got {path_type(timer)}"
     ref_all_paths = get_all_paths(glob.glob("/".join(verilog_file.split('/')[:-1]) + "/timing*.rpt"))
     classified_ref_paths = classify_ref_path(ref_all_paths)
     ref_path_max = [p for p in ref_all_paths if p['el'] == 'max']
@@ -89,7 +121,8 @@ def main():
             dut_paths = classified_dut_paths[el][path_type]
             ref_paths = classified_ref_paths[el][path_type]
             for dut_path in dut_paths:
-                dut_path_pin_names = set([dut_path[-1]['name'], dut_path[-1]['name'].replace("\\","")]) # 终点是唯一的
+                dut_path_pin_names = set(info['name'] for info in dut_path)
+                dut_path_pin_names |= set([name.replace("\\","") for name in dut_path_pin_names])
                 find = False
                 for ref_path in ref_paths:
                     if ref_path[-1]['name'] not in dut_path_pin_names:
@@ -107,6 +140,7 @@ def main():
                          results[el][path_type]['diff'] = diff
                          results[el][path_type]['path'] = dut_path
                          results[el][path_type]['similarity'] = similarity
+                
                 if not find:
                     print(f"Warning: No matching reference path found for DUT path ending at {dut_path[-1]['name']} with delay {dut_path[-1]['at']:.10f} ns")
 
@@ -123,21 +157,18 @@ def main():
                     continue
                 print(f"{el} {path_type}: {res['diff']:.10f} ns diff, similarity={res['similarity']:.10f}")
                 old_at = 0
-                Visualizer(circuit).visualize_path(res['path'])
+                # Visualizer(None).visualize_path(res['path'])
                 for info in res['path']:
                     pin_name = info['name']
                     at = info['at']
                     clock_edge = info['edge']
-                    pin: Pin = circuit.get_pin(pin_name)
+                    # pin: Pin = circuit.get_pin(pin_name)
                     incr = at - old_at
                     old_at = at
-                    assert isinstance(pin, Pin), f"Expected pin to be a Pin instance, got {path_type(pin)}"
-                    if pin.type in [EnumPinType.INPUT] and incr == 0 and len(pin.fanout) > 0:
-                        continue # 输入端口没有delay的情况不输出
-                    capacitance = pin.capacitance[EnumTimingMode.to_enum(el)]
-                    slew = pin.get_slew(EnumTimingMode.to_enum(el), clock_edge)
+                    capacitance = info['cap']
+                    trans = info['trans']
                     max_pin_name_len = max(len(info['name']) for info in res['path'])
-                    print(f"  {pin_name:<{max_pin_name_len+1}} (capacitance={capacitance[clock_edge]:.10f} pf, slew: {slew:.10f} , incr={incr:.10f} ns), {clock_edge}")
+                    print(f"  {pin_name:<{max_pin_name_len+1}} (capacitance={capacitance:.10f} pf, slew: {trans:.10f} , incr={incr:.10f} ns at={at:.10f} ns), {clock_edge}")
                 print(f"total delay: {res['path'][-1]['at'] - res['path'][0]['at']:.10f} ns, slack: {res['path'][-1]['slack']}")
     
     for el in EL_TYPES:
