@@ -10,6 +10,13 @@ target_sources(mySTA
         src/Parser/VerilogParser.cc
         src/Parser/VerilogModule.cc
         src/Parser/LibertyParser.cc
+        src/Parser/CellLib.cc
+        src/CircuitBuilder.cc
+        src/Timer.cc
+        src/Arc.cc
+        src/Pin.cc
+        src/Lut.cc
+        src/Net.cc
 )
 
 target_link_libraries(mySTA 

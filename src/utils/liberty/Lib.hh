@@ -65,7 +65,7 @@ class LibObject
   LibObject() = default;
   virtual ~LibObject() = default;
 
-  virtual void addAxis(std::unique_ptr<LibAxis>&& axis) { LOG_FATAL << "not support"; }
+  virtual void addAxis(std::unique_ptr<LibAxis>&&) { LOG_FATAL << "not support"; }
   virtual void set_template_variable1(const char*) { LOG_FATAL << "not support"; }
   virtual void set_template_variable2(const char*) { LOG_FATAL << "not support"; }
   virtual void set_template_variable3(const char*) { LOG_FATAL << "not support"; }
@@ -312,25 +312,35 @@ class LibTableModel : public LibObject
   virtual unsigned isPowerModel() { return 0; }
   virtual unsigned addTable(std::unique_ptr<LibTable>&& table) = 0;
   virtual LibTable* getTable(int index) = 0;
-  virtual std::optional<double> gateDelay(TransType trans_type, double slew, double load)
+  virtual std::optional<double> gateDelay([[maybe_unused]] TransType trans_type, [[maybe_unused]] double slew, [[maybe_unused]] double load)
   {
     LOG_FATAL << "not support";
     return 0.0;
   }
-  virtual std::optional<double> gateDelaySigma(AnalysisMode mode, TransType trans_type, double slew, double load) { return 0.0; }
-  virtual std::optional<double> gateSlew(TransType trans_type, double slew, double load)
+  virtual std::optional<double> gateDelaySigma([[maybe_unused]] AnalysisMode mode, [[maybe_unused]] TransType trans_type,
+                                               [[maybe_unused]] double slew, [[maybe_unused]] double load)
+  {
+    return 0.0;
+  }
+  virtual std::optional<double> gateSlew([[maybe_unused]] TransType trans_type, [[maybe_unused]] double slew, [[maybe_unused]] double load)
   {
     LOG_FATAL << "not support";
     return 0.0;
   }
-  virtual std::optional<double> gateSlewSigma(AnalysisMode mode, TransType trans_type, double slew, double load) { return 0.0; }
-  virtual std::optional<double> gateCheckConstrain(TransType trans_type, double slew, double load)
+  virtual std::optional<double> gateSlewSigma([[maybe_unused]] AnalysisMode mode, [[maybe_unused]] TransType trans_type,
+                                              [[maybe_unused]] double slew, [[maybe_unused]] double load)
+  {
+    return 0.0;
+  }
+  virtual std::optional<double> gateCheckConstrain([[maybe_unused]] TransType trans_type, [[maybe_unused]] double slew,
+                                                   [[maybe_unused]] double load)
   {
     LOG_FATAL << "not support";
     return 0.0;
   }
 
-  virtual std::unique_ptr<LibCurrentData> gateOutputCurrent(TransType trans_type, double slew, double load)
+  virtual std::unique_ptr<LibCurrentData> gateOutputCurrent([[maybe_unused]] TransType trans_type, [[maybe_unused]] double slew,
+                                                            [[maybe_unused]] double load)
   {
     LOG_FATAL << "not support";
     return nullptr;
@@ -338,7 +348,7 @@ class LibTableModel : public LibObject
 
   virtual double driveResistance() { return 0.0; }
 
-  virtual double gatePower(TransType trans_type, double slew, std::optional<double> load)
+  virtual double gatePower([[maybe_unused]] TransType trans_type, [[maybe_unused]] double slew, [[maybe_unused]] std::optional<double> load)
   {
     LOG_FATAL << "not support";
     return 0.0;
