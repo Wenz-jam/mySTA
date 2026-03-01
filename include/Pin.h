@@ -64,6 +64,8 @@ class Pin
 
   void             reset_arrival_time   (EnumTimingMode timing_mode, EnumClockEdge clock_edge);
   void         reset_all_arrival_time   ();
+  void     reset_request_arrival_time   (EnumTimingMode timing_mode, EnumClockEdge clock_edge);
+  void reset_all_request_arrival_time   ();
   // clang-format on
 
   void connect_to(Net& net);

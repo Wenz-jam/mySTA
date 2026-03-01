@@ -80,6 +80,13 @@ void Timer::reset_arrival_time()
   }
 }
 
+void Timer::reset_request_arrival_time()
+{
+  for (const auto& pins{_circuit.get_all_pins()}; auto* pin: pins) {
+    pin->reset_all_request_arrival_time();
+  }
+}
+
 const Pin* Timer::deduce_clock()
 {
   if (_clock_pin == nullptr) {
@@ -174,7 +181,7 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
     }
   }
 
-  return paths;
+  // return paths;
   LOG_INFO << std::format("reporting {} path {} to {}", *timing_mode, *start_type, *end_type);
   for (const auto& path : paths) {
     float_t last_at{0};

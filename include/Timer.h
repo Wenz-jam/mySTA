@@ -40,6 +40,7 @@ class Timer
   void propagate_arrival_time();
   void propagate_request_arrival_time();
   void reset_arrival_time();
+  void reset_request_arrival_time();
   const Pin* deduce_clock();
 
   std::vector<std::vector<path_t>> report_timing(EnumTimingMode timing_mode, EnumPointType start_type, EnumPointType end_type);

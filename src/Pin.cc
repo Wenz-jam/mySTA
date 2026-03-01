@@ -175,6 +175,16 @@ void Pin::reset_all_arrival_time()
   FOREACH_EL_RF([this](const auto el, const auto rf) { this->reset_arrival_time(el, rf); });
 }
 
+void Pin::reset_request_arrival_time(EnumTimingMode timing_mode, EnumClockEdge clock_edge)
+{
+  _request_arrival_time[+timing_mode][+clock_edge].reset();
+}
+
+void Pin::reset_all_request_arrival_time()
+{
+  FOREACH_EL_RF([this](const auto el, const auto rf) { this->reset_request_arrival_time(el, rf); });
+}
+
 void Pin::connect_to(Net& net)
 {
   switch (_type) {
