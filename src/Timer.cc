@@ -181,27 +181,6 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
     }
   }
 
-  // return paths;
-  LOG_INFO << std::format("reporting {} path {} to {}", *timing_mode, *start_type, *end_type);
-  for (const auto& path : paths) {
-    float_t last_at{0};
-    LOG_INFO << std::format("Timing Path(slack {:<.10f}):", path[0].slack);
-    for (const auto& info : path) {
-      std::string_view name{info.pin_name};
-      auto clock_edge{info.clock_edge};
-      auto at{info.arrival_time};
-      auto incr{at - last_at};
-      auto* pin{info.pin};
-      auto cap{pin->get_capacitance(timing_mode, clock_edge)};
-      auto slew{*pin->get_slew(timing_mode, clock_edge)};
-      const auto& expected_at{pin->get_arrival_time(timing_mode, clock_edge)};
-      LOG_ASSERT(expected_at && *expected_at == at) << std::format(" Expected {}? {}, get {}", bool(expected_at), *expected_at, at);
-      last_at = at;
-      LOG_INFO << std::format("{:<15} cap: {:.10f} slew {:.10f} incr: {:.10f} ns, total_delay: {:.10f} {:<2}", name, cap, slew, incr, at,
-                              *clock_edge);
-    }
-    LOG_INFO << "------------------------------------------------------------";
-  }
   return paths;
 }
 
