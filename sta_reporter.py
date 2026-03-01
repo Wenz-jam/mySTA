@@ -3,6 +3,7 @@
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt_paser import get_all_paths, get_path_all_pin_names
 from rpt2csv import hash_path, get_design_name
+import pySTA
 # from sta_checker import classify_ref_path, try_run_main
 import msgpack
 
@@ -33,13 +34,46 @@ def classify_ref_path(all_paths):
         ret[el][path_type].append(path['data'])
     return ret
 
-def try_run_main(a):
-    # data = json5.load(sys.stdin)
-
-    data = msgpack.unpackb(sys.stdin.buffer.read())
+report_time = 0
+total_time = 0
+import time
+def try_run_main(verilog_file):
+    pySTA.init()
+    
+    ret = {"max": {
+            "in2out": [],
+            "in2reg": [],
+            "reg2reg": [],
+            "reg2out": [],
+    }, "min": {
+            "in2out": [],
+            "in2reg": [],
+            "reg2reg": [],
+            "reg2out": [],
+    }}
+    liberty_file = ["/home/wenz/git/mySTA/pdk/icsprout55/IP/STD_cell/ics55_LLSC_H7C_V1p10C100/ics55_LLSC_H7CL/liberty/ics55_LLSC_H7CL_typ_tt_1p2_25_nldm.lib",
+                    "/home/wenz/git/mySTA/pdk/icsprout55/IP/STD_cell/ics55_LLSC_H7C_V1p10C100/ics55_LLSC_H7CR/liberty/ics55_LLSC_H7CR_typ_tt_1p2_25_nldm.lib"
+                ]
+    total_start = time.perf_counter()
+    for lib in liberty_file:
+        pySTA.read_liberty(lib)
+    pySTA.read_verilog(verilog_file)
+    pySTA.link_design()
+    pySTA.update_timing()
+    report_start = time.perf_counter()
+    for el in EL_TYPES:
+        for path in PATH_TYPES:
+            st,ed = path.split('2')
+            ret[el][path] = pySTA.report_timing(el, st, ed)
+    end = time.perf_counter()
+    global total_time
+    global report_time
+    total_time = end - total_start
+    report_time = end - report_start
+            
     # with open("/tmp/simple", "rb") as f:
     #     data = msgpack.unpackb(f.read())
-    return data
+    return ret
 
 
 def main():
@@ -108,7 +142,7 @@ def main():
                 max_nr = min_nr = 1
             # results[el][path_type]['similarity'] *= min_nr / max_nr
             # print(nr_ref_paths, nr_dut_paths)
-    print(get_design_name(verilog_file),",-,-", end=",")
+    print(get_design_name(verilog_file),f",-,{total_time},{report_time}", end=",")
     for el in EL_TYPES:
         for path_type in PATH_TYPES:
             nr_ref_paths = len(classified_ref_paths[el][path_type])
