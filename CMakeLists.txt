@@ -2,13 +2,10 @@ cmake_minimum_required(VERSION 3.23)
 
 project(mySTA)
 
-add_executable(mySTA
-        src/Visualizer.cc
-        include/Visualizer.h)
+add_library(mySTAcore)
 
-target_sources(mySTA
+target_sources(mySTAcore
     PRIVATE
-        src/main.cc
         src/Parser/VerilogParser.cc
         src/Parser/VerilogModule.cc
         src/Parser/LibertyParser.cc
@@ -21,21 +18,16 @@ target_sources(mySTA
         src/Net.cc
 )
 
-target_link_libraries(mySTA 
-    PRIVATE
+target_link_libraries(mySTAcore
+    PUBLIC
         log
         verilog
         liberty
 )
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GRAPHVIZ REQUIRED libcgraph libcdt)
-target_include_directories(mySTA PRIVATE ${GRAPHVIZ_INCLUDE_DIRS})
-target_link_libraries(mySTA PRIVATE ${GRAPHVIZ_LIBRARIES})
+target_compile_features(mySTAcore PRIVATE cxx_std_23)
 
-target_compile_features(mySTA PRIVATE cxx_std_23)
-
-target_compile_options(mySTA PRIVATE -Wall -Wextra -Werror)
+target_compile_options(mySTAcore PRIVATE -Wall -Wextra -Werror)
 
 include(cmake/settings.cmake)
 include(cmake/rust.cmake)

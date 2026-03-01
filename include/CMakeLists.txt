@@ -1,3 +1,3 @@
-target_sources(mySTA PRIVATE
+target_sources(mySTAcore PUBLIC
     FILE_SET HEADERS
 )
