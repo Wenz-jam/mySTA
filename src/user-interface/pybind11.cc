@@ -26,32 +26,33 @@ void init()
   FLAGS_logtostderr = false;
 }
 
-std::unique_ptr<mySTA::Circuit> circuit{nullptr};
-std::unique_ptr<mySTA::Timer> timer{nullptr};
+std::unique_ptr verilog_parser{std::make_unique<mySTA::VerilogParser>()};
+std::unique_ptr liberty_parser{std::make_unique<mySTA::LibertyParser>()};
+std::unique_ptr circuit{std::make_unique<mySTA::Circuit>(*verilog_parser, *liberty_parser)};
+std::unique_ptr timer{std::make_unique<mySTA::Timer>(*circuit)};
 
 static int read_verilog(const std::string& arg)
 {
-  mySTA::VerilogParser::read_verilog(mySTA::strip(arg));
+  verilog_parser = std::make_unique<mySTA::VerilogParser>();
+  verilog_parser->read_verilog(mySTA::strip(arg));
   return 0;
 }
 
 static int read_liberty(const std::string& arg)
 {
-  mySTA::LibertyParser::read_liberty(mySTA::strip(arg));
+  liberty_parser->read_liberty(mySTA::strip(arg));
   return 0;
 }
 
 static int link_design()
 {
-  mySTA::LibertyParser::link_lib(mySTA::VerilogParser::get_all_cell_name());
-  circuit = std::make_unique<mySTA::Circuit>();
+  liberty_parser->link_lib(verilog_parser->get_all_cell_name());
   circuit->build_circuit();
   return 0;
 }
 
 static int update_timing()
 {
-  timer = std::make_unique<mySTA::Timer>(*circuit);
   timer->update_capacitance();
   timer->propagate_slew();
   timer->propagate_delay();

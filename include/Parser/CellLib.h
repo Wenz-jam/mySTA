@@ -33,7 +33,7 @@ class CellLib
   CircuitBuilder& _circuit_builder;
 
  public:
-  CellLib(std::string_view instance_name, std::string_view module_name, const std::vector<VerilogModule::port_list_t>& port_list,
+  CellLib(std::string_view instance_name, std::string_view module_name, ista::LibCell* cell, const std::vector<VerilogModule::port_list_t>& port_list,
           CircuitBuilder& builder);
 
   void create_pins();

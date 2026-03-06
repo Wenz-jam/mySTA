@@ -28,11 +28,11 @@ Net& find_net(const std::string_view net_name);
 }  // namespace mySTA
 
 namespace mySTA {
-CellLib::CellLib(const std::string_view instance_name, const std::string_view module_name,
+CellLib::CellLib(const std::string_view instance_name, const std::string_view module_name, ista::LibCell* cell,
                  const std::vector<VerilogModule::port_list_t>& port_list, CircuitBuilder& builder)
     : _instance_name{instance_name},
       _module_name{module_name},
-      _cell{*LibertyParser::select_cell(module_name)},
+      _cell{cell},
       _port_mapping{port_list | std::ranges::to<decltype(_port_mapping)>()},
       _circuit_builder{builder}
 {

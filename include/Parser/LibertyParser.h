@@ -9,23 +9,29 @@
 #include <memory>
 #include <string_view>
 #include <vector>
+#include <unordered_set>
 
 #include "Lib.hh"
 #include "LibParserRustC.hh"
 
 namespace mySTA {
 
+class VerilogParser;
+
 class LibertyParser
 {
-  static std::vector<std::unique_ptr<ista::RustLibertyReader>> liberty_readers;
-  static std::vector<std::future<void>> read_futures;
-  static std::vector<std::unique_ptr<ista::LibLibrary>> libs;
+public:
+  ~LibertyParser() = default;
 
- public:
-  static void read_liberty(std::string_view filename);
-  static void link_lib(const std::unordered_set<std::string>& cells);
-  static std::optional<ista::LibCell*> select_cell(const std::string& cell_name);
-  static std::optional<ista::LibCell*> select_cell(std::string_view cell_name);
+  void read_liberty(std::string_view filename);
+  void link_lib(const std::unordered_set<std::string>& cells);
+  [[nodiscard]] std::optional<ista::LibCell*> select_cell(const std::string& cell_name) const;
+  [[nodiscard]] std::optional<ista::LibCell*> select_cell(std::string_view cell_name) const;
+
+private:
+  std::vector<std::unique_ptr<ista::RustLibertyReader>> _liberty_readers;
+  std::vector<std::future<void>> _read_futures;
+  std::vector<std::unique_ptr<ista::LibLibrary>> _libs;
 };
 
 }  // namespace mySTA

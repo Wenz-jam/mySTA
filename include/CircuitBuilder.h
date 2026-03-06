@@ -14,6 +14,7 @@
 #include "Enum/EnumTimingSense.h"
 #include "Enum/EnumTimingType.h"
 #include "Parser/CellLib.h"
+#include "Parser/LibertyParser.h"
 #include "Parser/VerilogModule.h"
 #include "Pin.h"
 
@@ -40,6 +41,9 @@ class CircuitBuilder
   std::vector<std::string> primary_outputs{};
   std::vector<std::unique_ptr<CellLib>> cells{};
 
+  VerilogParser& _verilog_parser;
+  LibertyParser& _liberty_parser;
+
   CircuitBuilder& create_cells(const std::vector<VerilogModule::instance_t>& instances);
   CircuitBuilder& create_nets(const std::vector<std::string>& _wires);
   CircuitBuilder& create_primary_io(const std::vector<std::string>& inputs, const std::vector<std::string>& outputs);
@@ -47,6 +51,7 @@ class CircuitBuilder
   CircuitBuilder& process_all_assignments(const std::vector<VerilogModule::assign_t>& assignments);
 
  public:
+  CircuitBuilder(VerilogParser& verilog_parser, LibertyParser& liberty_parser);
 
   Pin& create_pin(std::string_view pin_name, EnumPinType pin_type);
   Pin& find_pin(std::string_view pin_name);

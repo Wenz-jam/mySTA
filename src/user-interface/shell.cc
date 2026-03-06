@@ -25,7 +25,8 @@ namespace {
 using json = nlohmann::json;
 using EnumTimingMode = mySTA::EnumTimingMode;
 using Timer = mySTA::Timer;
-using CircuitBuilder = mySTA::CircuitBuilder;
+using VerilogParser = mySTA::VerilogParser;
+using LibertyParser = mySTA::LibertyParser;
 using Circuit = mySTA::Circuit;
 using EnumPointType = mySTA::EnumPointType;
 using mySTA::to_enum;
@@ -227,24 +228,26 @@ static int cmd_set_app_var(std::string_view arg)
 }
 
 std::unique_ptr<Circuit> circuit{nullptr};
+std::unique_ptr verilog_parser{std::make_unique<VerilogParser>()};
+std::unique_ptr liberty_parser{std::make_unique<LibertyParser>()};
 std::unique_ptr<Timer> timer{nullptr};
 
 static int cmd_read_verilog(std::string_view arg)
 {
-  mySTA::VerilogParser::read_verilog(strip(arg));
+  verilog_parser->read_verilog(strip(arg));
   return 0;
 }
 
 static int cmd_read_liberty(std::string_view arg)
 {
-  mySTA::LibertyParser::read_liberty(strip(arg));
+  liberty_parser->read_liberty(strip(arg));
   return 0;
 }
 
 static int cmd_link_design(std::string_view arg)
 {
-  mySTA::LibertyParser::link_lib(mySTA::VerilogParser::get_all_cell_name());
-  circuit = std::make_unique<Circuit>();
+  liberty_parser->link_lib(verilog_parser->get_all_cell_name());
+  circuit = std::make_unique<Circuit>(*verilog_parser, *liberty_parser);
   circuit->build_circuit();
   return 0;
 }

@@ -11,25 +11,15 @@
 #include <string_view>
 #include <unordered_set>
 
-#include "Parser/VerilogModule.h"
 #include "Log.hh"
+#include "Parser/VerilogModule.h"
 #include "VerilogParserRustC.hh"
 
 namespace mySTA {
 
-std::unordered_map<std::string, VerilogModule> VerilogParser::modules;
-std::string VerilogParser::top_module_name;
-std::string VerilogParser::_verilog_file_name;
-
-const VerilogParser::DispatchEntry VerilogParser::table[]{
-    {rust_is_module_inst_stmt, [](Stmt* stmt) { VerilogParser::on_instance(rust_convert_verilog_inst(stmt)); }},
-    {rust_is_module_assign_stmt, [](Stmt* stmt) { VerilogParser::on_assignment(rust_convert_verilog_assign(stmt)); }},
-    {rust_is_verilog_dcl_stmt, [](Stmt* stmt) { VerilogParser::on_declaration(rust_convert_verilog_dcl(stmt)); }},
-    {rust_is_verilog_dcls_stmt, [](Stmt* stmt) { VerilogParser::on_declarations(rust_convert_verilog_dcls(stmt)); }},
-    {[](Stmt*) { return true; }, VerilogParser::todo},
-};
-
-constexpr const char* get_id(const void* cid)
+namespace {
+// 辅助函数：从 Rust 指针获取标识符字符串
+const char* get_id(const void* cid)
 {
   LOG_ASSERT(cid);
   auto* id{const_cast<void*>(cid)};
@@ -37,7 +27,7 @@ constexpr const char* get_id(const void* cid)
   return rust_convert_verilog_id(id)->id;
 }
 
-constexpr const char* get_expr_id(const void* cexpr)
+const char* get_expr_id(const void* cexpr)
 {
   void* expr{const_cast<void*>(cexpr)};
   LOG_ASSERT(expr);
@@ -45,11 +35,11 @@ constexpr const char* get_expr_id(const void* cexpr)
   const auto* net_id{rust_convert_verilog_net_id_expr(expr)->verilog_id};
   return get_id(net_id);
 }
+}  // namespace
 
 void VerilogParser::handle_port_list(const RustVec& port_list)
 {
   void* port{};
-  LOG_ASSERT(modules.size() == 1);
   LOG_ASSERT(!top_module_name.empty());
   auto& verilog_module{modules.at(top_module_name)};
   FOREACH_VEC_ELEM(&port_list, void, port)
@@ -64,18 +54,55 @@ void VerilogParser::handle_port_list(const RustVec& port_list)
   VLOG(1) << std::format("Ports: {}", std::size(verilog_module.get_all_ports()));
 }
 
+template <class... Ts>
+struct overloaded : Ts...
+{
+  using Ts::operator()...;
+};
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
 void VerilogParser::handle_statements(const RustVec& statements)
 {
   void* stmt{};
   FOREACH_VEC_ELEM(&statements, void, stmt)
   {
-    for (const auto& p : table) {
-      if (p.predicate(stmt)) {
-        p.handler(stmt);
-        break;
-      }
-    }
+    process_statement(stmt);
   }
+}
+
+void VerilogParser::process_statement(const void* stmt)
+{
+  // clang-format off
+  using StmtPtrVariant = std::variant<
+        const RustVerilogInst*,
+        const RustVerilogAssign*,
+        const RustVerilogDcl*,
+        const RustVerilogDcls*,
+        const Stmt*>;
+  // clang-format on
+
+  auto to_variant = [&](void* _stmt) -> StmtPtrVariant {
+    if (rust_is_module_inst_stmt(_stmt))
+      return rust_convert_verilog_inst(_stmt);
+    if (rust_is_module_assign_stmt(_stmt))
+      return rust_convert_verilog_assign(_stmt);
+    if (rust_is_verilog_dcl_stmt(_stmt))
+      return rust_convert_verilog_dcl(_stmt);
+    if (rust_is_verilog_dcls_stmt(_stmt))
+      return rust_convert_verilog_dcls(_stmt);
+    return static_cast<Stmt*>(_stmt);
+  };
+
+  auto var{to_variant(const_cast<void*>(stmt))};
+  std::visit(overloaded{
+                 [this](const RustVerilogInst* p) { on_instance(p); },
+                 [this](const RustVerilogAssign* p) { on_assignment(p); },
+                 [this](const RustVerilogDcl* p) { on_declaration(p); },
+                 [this](const RustVerilogDcls* p) { on_declarations(p); },
+                 [this](const Stmt* p) { todo(p); },
+             },
+             var);
 }
 
 void VerilogParser::on_instance(const RustVerilogInst* instance)
@@ -113,7 +140,8 @@ void VerilogParser::on_assignment(const RustVerilogAssign* assignment)
 
 void VerilogParser::on_declaration(const RustVerilogDcl* declaration)
 {
-  VLOG(1) << std::format("Declaration at line {} {} {}", declaration->line_no, declaration->dcl_name, dclTypeToString(declaration->dcl_type));
+  VLOG(1) << std::format("Declaration at line {} {} {}", declaration->line_no, declaration->dcl_name,
+                         dclTypeToString(declaration->dcl_type));
   auto& top_module{modules.at(top_module_name)};
   const char* declaration_name{declaration->dcl_name};
   switch (declaration->dcl_type) {
@@ -140,14 +168,14 @@ void VerilogParser::on_declarations(const RustVerilogDcls* declarations)
   void* stmt{};
   FOREACH_VEC_ELEM(&dcls, void, stmt)
   {
-    // LOG_ASSERT(rust_is_verilog_dcl_stmt(stmt));
+    // 直接调用 on_declaration，因为每个元素都是单个声明
     on_declaration(rust_convert_verilog_dcl(stmt));
   }
 }
 
-void VerilogParser::todo(Stmt* stmt)
+void VerilogParser::todo(const Stmt* stmt)
 {
-  LOG_FATAL << std::format("Unimplemented statement at line {}", rust_convert_verilog_base_stmt(stmt)->line_no);
+  LOG_FATAL << std::format("Unimplemented statement at line {}", rust_convert_verilog_base_stmt(const_cast<Stmt*>(stmt))->line_no);
 }
 
 void VerilogParser::read_verilog(const std::string_view filename)
@@ -155,8 +183,6 @@ void VerilogParser::read_verilog(const std::string_view filename)
   _verilog_file_name = filename;
   ista::RustVerilogReader verilog_reader{};
   LOG_ASSERT(verilog_reader.readVerilog(std::string{filename}.c_str()));
-  // 假设整个VerilogFile只有一个TopModule
-  // 如果具有多个TopModule, autoTopModule会失败, 需要手动指定
   LOG_ASSERT(verilog_reader.autoTopModule());
   RustVerilogModule* module{verilog_reader.get_top_module()};
 
@@ -173,13 +199,22 @@ void VerilogParser::read_verilog(const std::string_view filename)
   verilog_module.statistic();
 }
 
-std::unordered_set<std::string> VerilogParser::get_all_cell_name() {
-  const VerilogModule& top_module {modules.at(top_module_name)};
-  auto& instances {top_module.get_all_instances()};
+std::unordered_set<std::string> VerilogParser::get_all_cell_name() const
+{
+  const VerilogModule& top_module{modules.at(top_module_name)};
+  auto& instances{top_module.get_all_instances()};
 
-  return instances
-       | std::views::transform(&VerilogModule::instance_t::module_name)
-       | std::ranges::to<std::unordered_set<std::string>>();
+  return instances | std::views::transform(&VerilogModule::instance_t::module_name) | std::ranges::to<std::unordered_set<std::string>>();
+}
+
+const VerilogModule& VerilogParser::get_top_module() const
+{
+  return modules.at(top_module_name);
+}
+
+std::string_view VerilogParser::get_verilog_file_name() const
+{
+  return _verilog_file_name;
 }
 
 }  // namespace mySTA

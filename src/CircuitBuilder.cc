@@ -102,7 +102,10 @@ CircuitBuilder& CircuitBuilder::create_primary_io(const std::vector<std::string>
 CircuitBuilder& CircuitBuilder::create_cells(const std::vector<VerilogModule::instance_t>& instances)
 {
   for (const auto& [instance_name, module_name, port_list] : instances) {
-    cells.emplace_back(std::make_unique<CellLib>(instance_name, module_name, port_list, *this));
+    auto cell {_liberty_parser.select_cell(module_name)};
+    LOG_ASSERT(cell) <<  std::format("Could not find module {} in Liberty for Verilog file {}",
+                           module_name, _verilog_parser.get_verilog_file_name());
+    cells.emplace_back(std::make_unique<CellLib>(instance_name, module_name, *cell, port_list, *this));
   }
   return *this;
 }
@@ -133,10 +136,14 @@ CircuitBuilder& CircuitBuilder::process_all_assignments(const std::vector<Verilo
   }
   return *this;
 }
+CircuitBuilder::CircuitBuilder(VerilogParser& verilog_parser, LibertyParser& liberty_parser)
+    : _verilog_parser(verilog_parser), _liberty_parser(liberty_parser)
+{
+}
 
 CircuitBuilder& CircuitBuilder::build_circuit()
 {
-  const auto& top_module{VerilogParser::get_top_module()};
+  const auto& top_module{_verilog_parser.get_top_module()};
   const auto& wires{top_module.get_all_wires()};
   const auto& inputs{top_module.get_all_inputs()};
   const auto& outputs{top_module.get_all_outputs()};
@@ -180,8 +187,8 @@ std::vector<Pin*> CircuitBuilder::get_toposorted_pins()
       return;
     }
     visitied_pins.insert(pin);
-    for (auto* arc: pin->get_fanout()) {
-      Pin* to_pin {arc->to_pin()};
+    for (const auto* arc : pin->get_fanout()) {
+      Pin* to_pin{arc->to_pin()};
       dfs(to_pin);
     }
     visitied_pins.insert(pin);

@@ -27,8 +27,10 @@
 
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "RustCommon.hh"
@@ -300,7 +302,7 @@ struct RustVerilogDcls* rust_convert_verilog_dcls(void* verilog_dcls_struct);
  * @param verilog_inst
  * @return struct RustVerilogInst*
  */
-struct RustVerilogInst* rust_convert_verilog_inst(void* verilog_inst);
+struct ::RustVerilogInst* rust_convert_verilog_inst(void* verilog_inst);
 
 /**
  * @brief Rust convert verilog_assign to C struct.

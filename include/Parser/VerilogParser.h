@@ -19,36 +19,28 @@ class VerilogParser
 {
   using Stmt = void;
   using PortList = void;
-  using DispatchEntry = struct
-  {
-    bool (*predicate)(Stmt*);
-    void (*handler)(Stmt*);
-  };
 
-  static const DispatchEntry table[];
+  std::string top_module_name;
+  std::unordered_map<std::string, VerilogModule> modules;
+  std::string _verilog_file_name;
 
-  static std::string top_module_name;
-  static std::unordered_map<std::string, VerilogModule> modules;
+  void handle_port_list(const RustVec& port_list);
+  void handle_statements(const RustVec& statements);
+  void process_statement(const void* stmt);
 
-  static void handle_port_list(const RustVec& port_list);
-  static void handle_statements(const RustVec& statements);
-
-  static void on_instance(const RustVerilogInst*);
-  static void on_assignment(const RustVerilogAssign*);
-  static void on_declaration(const RustVerilogDcl* declaration);
-  static void on_declarations(const RustVerilogDcls* declarations);
-  static void todo(Stmt *stmt);
+  void on_instance(const RustVerilogInst*);
+  void on_assignment(const RustVerilogAssign*);
+  void on_declaration(const RustVerilogDcl* declaration);
+  void on_declarations(const RustVerilogDcls* declarations);
+  void todo(const Stmt* stmt);
 
  public:
+  VerilogParser() = default;
 
-  static std::string _verilog_file_name;
-
-  static void read_verilog(std::string_view filename);
-  static std::unordered_set<std::string> get_all_cell_name();
-  [[nodiscard]] static constexpr VerilogModule& get_top_module()
-  {
-    return modules.at(top_module_name);
-  }
+  void read_verilog(std::string_view filename);
+  std::unordered_set<std::string> get_all_cell_name() const;
+  [[nodiscard]] const VerilogModule& get_top_module() const;
+  [[nodiscard]] std::string_view get_verilog_file_name() const;
 };
 
 }  // namespace mySTA
