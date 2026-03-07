@@ -59,8 +59,8 @@ def try_run_main(verilog_file):
         pySTA.read_liberty(lib)
     pySTA.read_verilog(verilog_file)
     pySTA.link_design()
-    pySTA.update_timing()
     report_start = time.perf_counter()
+    pySTA.update_timing()
     for el in EL_TYPES:
         for path in PATH_TYPES:
             st,ed = path.split('2')
