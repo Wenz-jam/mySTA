@@ -33,7 +33,6 @@ std::unique_ptr timer{std::make_unique<mySTA::Timer>(*circuit)};
 
 static int read_verilog(const std::string& arg)
 {
-  verilog_parser = std::make_unique<mySTA::VerilogParser>();
   verilog_parser->read_verilog(mySTA::strip(arg));
   return 0;
 }
