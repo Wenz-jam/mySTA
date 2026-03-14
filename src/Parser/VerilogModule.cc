@@ -69,12 +69,12 @@ const std::vector<VerilogModule::assign_t>& VerilogModule::get_all_assignments()
 void VerilogModule::statistic() const
 {
   LOG_INFO << std::format("VerilogModule: {}", name);
-  LOG_INFO << std::format("nr port        {}", inputs.size());
+  LOG_INFO << std::format("nr port        {}", inputs.size() + outputs.size());
   LOG_INFO << std::format("nr input       {}", inputs.size());
   LOG_INFO << std::format("nr output      {}", outputs.size());
   LOG_INFO << std::format("nr wire        {}", wires.size());
   LOG_INFO << std::format("nr instance    {}", instances.size());
-  LOG_INFO << std::format("nr assignments {}", instances.size());
+  LOG_INFO << std::format("nr assignments {}", assignments.size());
 }
 
 }  // namespace mySTA
