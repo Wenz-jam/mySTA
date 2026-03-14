@@ -185,16 +185,16 @@ std::optional<std::string_view> get_app_variable(const std::string_view key)
 
 using handler = int (*)(std::string_view);
 std::unordered_map<std::string, std::pair<std::string, handler>, string_hash, std::equal_to<>> cmd_table{
-    {"help", {"Display information about all supported commands", cmd_help}},
-    {"set", {"creat a value", cmd_set}},
-    {"set_app_var", {"set app var", cmd_set_app_var}},
-    {"read_verilog", {"", cmd_read_verilog}},
-    {"read_liberty", {"", cmd_read_liberty}},
-    {"link_design", {"", cmd_link_design}},
-    {"remove_wire_load_model", {"", cmd_remove_wire_load_model}},
-    {"update_timing", {"", cmd_update_timing}},
-    {"report_timing", {"", cmd_report_timing}},
-    {"exit", {"Quit STA", cmd_exit}},
+  {"help", {"Display information about all supported commands", cmd_help}},
+  {"set", {"Set a shell variable: set <name> <value>", cmd_set}},
+  {"set_app_var", {"Set an application variable: set_app_var <name> <value>", cmd_set_app_var}},
+  {"read_verilog", {"Read a Verilog file and parse it: read_verilog <file.v>", cmd_read_verilog}},
+  {"read_liberty", {"Read a Liberty file and parse it: read_liberty <file.lib>", cmd_read_liberty}},
+  {"link_design", {"Link parsed Verilog and Liberty, then build the circuit: link_design", cmd_link_design}},
+  {"remove_wire_load_model", {"Remove wire load model from the design (placeholder): remove_wire_load_model", cmd_remove_wire_load_model}},
+  {"update_timing", {"Create Timer and compute capacitance, slew, delay and arrival times: update_timing", cmd_update_timing}},
+  {"report_timing", {"Report timing paths. Usage: report_timing -d <max|min> -T <START_to_END> [-c] [-t] [-n] [-p mode] [-m N] [-s val]", cmd_report_timing}},
+  {"exit", {"Quit STA", cmd_exit}},
 };
 
 static int cmd_help(std::string_view arg)
