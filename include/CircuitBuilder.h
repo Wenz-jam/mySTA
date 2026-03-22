@@ -40,6 +40,8 @@ class CircuitBuilder
   std::vector<std::string> primary_inputs{};
   std::vector<std::string> primary_outputs{};
   std::vector<std::unique_ptr<CellLib>> cells{};
+  std::optional<std::vector<Pin*>> all_pins_cache{};
+  std::optional<std::vector<Pin*>> toposorted_pins{};
 
   VerilogParser& _verilog_parser;
   LibertyParser& _liberty_parser;
@@ -61,8 +63,8 @@ class CircuitBuilder
   Net& find_net(std::string_view net_name);
   CircuitBuilder& build_circuit();
 
-  std::vector<Pin*> get_all_pins();
-  std::vector<Pin*> get_toposorted_pins();
+  const std::vector<Pin*>& get_all_pins();
+  const std::vector<Pin*>& get_toposorted_pins();
   std::vector<Pin*> get_primary_outputs();
   std::vector<Pin*> get_primary_inputs();
   std::vector<Arc*> get_constraint_arcs();

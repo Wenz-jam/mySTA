@@ -27,6 +27,8 @@ namespace mySTA {
 
 Pin& CircuitBuilder::create_pin(const std::string_view pin_name, const EnumPinType pin_type)
 {
+  all_pins_cache.reset();
+  toposorted_pins.reset();
   auto [it, inserted]{pins.try_emplace(std::string{pin_name}, std::make_unique<Pin>(pin_name, pin_type))};
   return *it->second;
 }
@@ -173,13 +175,20 @@ CircuitBuilder& CircuitBuilder::build_circuit()
   return *this;
 }
 
-std::vector<Pin*> CircuitBuilder::get_all_pins()
+const std::vector<Pin*>& CircuitBuilder::get_all_pins()
 {
-  return pins | std::views::values | std::views::transform(&std::unique_ptr<Pin>::get) | std::ranges::to<std::vector<Pin*>>();
+  if (all_pins_cache) {
+    return *all_pins_cache;
+  }
+  all_pins_cache = pins | std::views::values | std::views::transform(&std::unique_ptr<Pin>::get) | std::ranges::to<std::vector<Pin*>>();
+  return *all_pins_cache;
 }
 
-std::vector<Pin*> CircuitBuilder::get_toposorted_pins()
+const std::vector<Pin*>& CircuitBuilder::get_toposorted_pins()
 {
+  if (toposorted_pins) {
+    return *toposorted_pins;
+  }
   std::unordered_set<Pin*> visitied_pins{};
   std::vector<Pin*> stack{};
   std::function<void(Pin*)> dfs = [&](Pin* pin) {
@@ -198,7 +207,8 @@ std::vector<Pin*> CircuitBuilder::get_toposorted_pins()
     dfs(pin);
   }
   std::ranges::reverse(stack);
-  return stack;
+  toposorted_pins = std::move(stack);
+  return *toposorted_pins;
 }
 
 std::vector<Pin*> CircuitBuilder::get_primary_outputs()
