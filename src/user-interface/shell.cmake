@@ -3,6 +3,9 @@ add_executable(mySTAshell)
 target_sources(mySTAshell
     PRIVATE
         shell.cc
+        shell/Context.cc
+        shell/Commands.cc
+        shell/ReportTiming.cc
 )
 
 target_link_libraries(mySTAshell
