@@ -60,17 +60,9 @@ static int update_timing()
   return 0;
 }
 
-using path_info = struct path_t
-{
-  std::string name;
-  EnumClockEdge edge;
-  mySTA::float_t at;
-  mySTA::float_t slack;
-  mySTA::float_t cap;
-  mySTA::float_t trans;
-};
+using path_info = mySTA::Timer::path_t;
 
-static std::vector<std::vector<path_info>> report_timing(std::string el, std::string st, std::string ed)
+static const mySTA::Timer::report_paths_t& report_timing(std::string el, std::string st, std::string ed)
 {
   auto start{mySTA::to_enum<mySTA::EnumPointType>(mySTA::to_upper(std::move(st)))};
   auto end{mySTA::to_enum<mySTA::EnumPointType>(mySTA::to_upper(std::move(ed)))};
@@ -78,27 +70,7 @@ static std::vector<std::vector<path_info>> report_timing(std::string el, std::st
   LOG_ASSERT(start);
   LOG_ASSERT(end);
   LOG_ASSERT(timing_mode);
-  auto paths = timer->report_timing(*timing_mode, *start, *end);
-  std::vector<std::vector<path_info>> result;
-  for (const auto& path : paths) {
-    mySTA::float_t last_at{0};
-    std::vector<path_info> _path;
-    for (const auto& info : path) {
-      std::string_view name{info.pin_name};
-      auto clock_edge{info.clock_edge};
-      auto at{info.arrival_time};
-      auto incr{at - last_at};
-      auto* pin{info.pin};
-      auto _cap{pin->get_capacitance(*timing_mode, clock_edge)};
-      auto slew{*pin->get_slew(*timing_mode, clock_edge)};
-      const auto& expected_at{pin->get_arrival_time(*timing_mode, clock_edge)};
-      LOG_ASSERT(expected_at && *expected_at == at) << std::format(" Expected {}? {}, get {}", bool(expected_at), *expected_at, at);
-      last_at = at;
-      _path.emplace_back(std::string{name}, clock_edge, at, path[0].slack, _cap, slew);
-    }
-    result.push_back(std::move(_path));
-  }
-  return result;
+  return timer->report_timing(*timing_mode, *start, *end);
 }
 
 PYBIND11_MODULE(pySTA, m, py::mod_gil_not_used())
@@ -119,25 +91,28 @@ PYBIND11_MODULE(pySTA, m, py::mod_gil_not_used())
       .export_values();
   py::class_<path_info>(m, "path_info")
     .def(py::init<>())
-    .def_readwrite("name", &path_info::name)
-    .def_readwrite("edge", &path_info::edge)
-    // ... 其他成员
+    .def_readwrite("name", &path_info::pin_name)
+    .def_readwrite("edge", &path_info::clock_edge)
+    .def_readwrite("at", &path_info::arrival_time)
+    .def_readwrite("slack", &path_info::slack)
+    .def_readwrite("cap", &path_info::capacitance)
+    .def_readwrite("trans", &path_info::slew)
     .def("__getitem__", [](const path_info &p, const std::string &key) -> py::object {
-        if (key == "name") return py::cast(p.name);
-        else if (key == "edge") return py::cast(p.edge);
-        else if (key == "at") return py::cast(p.at);
+        if (key == "name") return py::cast(p.pin_name);
+        else if (key == "edge") return py::cast(p.clock_edge);
+        else if (key == "at") return py::cast(p.arrival_time);
         else if (key == "slack") return py::cast(p.slack);
-        else if (key == "cap") return py::cast(p.cap);
-        else if (key == "trans") return py::cast(p.trans);
+        else if (key == "cap") return py::cast(p.capacitance);
+        else if (key == "trans") return py::cast(p.slew);
         else throw py::key_error("Unknown key: " + key);
     })
     .def("__setitem__", [](path_info &p, const std::string &key, const py::object &value) {
-        if (key == "name") p.name = value.cast<std::string>();
-        else if (key == "edge") p.edge = value.cast<EnumClockEdge>();
-        else if (key == "at") p.at = value.cast<mySTA::float_t>();
+        if (key == "name") p.pin_name = value.cast<std::string>();
+        else if (key == "edge") p.clock_edge = value.cast<EnumClockEdge>();
+        else if (key == "at") p.arrival_time = value.cast<mySTA::float_t>();
         else if (key == "slack") p.slack = value.cast<mySTA::float_t>();
-        else if (key == "cap") p.cap = value.cast<mySTA::float_t>();
-        else if (key == "trans") p.trans = value.cast<mySTA::float_t>();
+        else if (key == "cap") p.capacitance = value.cast<mySTA::float_t>();
+        else if (key == "trans") p.slew = value.cast<mySTA::float_t>();
         else throw py::key_error("Unknown key: " + key);
     });
 }

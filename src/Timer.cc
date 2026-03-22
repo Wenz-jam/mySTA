@@ -7,6 +7,31 @@
 #include "Enum/EnumForeach.h"
 
 namespace mySTA {
+namespace {
+
+bool should_skip_start_pin(const Pin* pin, const Pin* clock_pin, const EnumPointType start_type)
+{
+  if (start_type == EnumPointType::IN && pin == clock_pin) {
+    return true;
+  }
+  if (start_type == EnumPointType::REG && pin->is_primary_input() && pin != clock_pin) {
+    return true;
+  }
+  return false;
+}
+
+bool is_matching_end_point(const Pin* pin, const EnumPointType end_type)
+{
+  if (end_type == EnumPointType::OUT) {
+    return pin->is_primary_output();
+  }
+  if (end_type == EnumPointType::REG) {
+    return pin->is_input();
+  }
+  return false;
+}
+
+}  // namespace
 
 Timer::Timer(Circuit& circuit, std::optional<float_t> clock_cycle, std::optional<float_t> clock_rise_at,
              std::optional<float_t> clock_fall_at)
@@ -103,8 +128,89 @@ const Pin* Timer::deduce_clock()
   return _clock_pin;
 }
 
-std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMode timing_mode, const EnumPointType start_type,
-                                                             const EnumPointType end_type)
+void Timer::build_report_cache(const EnumPointType start_type)
+{
+  if (_report_cache[+start_type][+EnumTimingMode::MAX][+EnumPointType::REG].has_value()) {
+    return;
+  }
+
+  reset_arrival_time();
+
+  for (const auto& pins{_circuit.get_toposorted_pins()}; auto* pin : pins) {
+    if (should_skip_start_pin(pin, _clock_pin, start_type)) {
+      continue;
+    }
+    FOREACH_EL_FRF_TRF([&](const auto el, const auto frf, const auto trf) { pin->propagate_arrival_time(el, frf, trf); });
+  }
+
+  const std::vector end_points{_circuit.get_all_pins() | std::views::filter([](auto* pin) { return pin->get_fanout().empty(); })
+                               | std::ranges::to<std::vector<Pin*>>()};
+
+  const auto collect_paths = [&](const EnumTimingMode timing_mode, const EnumPointType end_type) {
+    report_paths_t paths{};
+    for (const auto* end_point : end_points) {
+      if (!is_matching_end_point(end_point, end_type)) {
+        continue;
+      }
+      const auto* pin{end_point};
+      auto atr{pin->get_arrival_time(timing_mode, EnumClockEdge::RISING)};
+      auto atf{pin->get_arrival_time(timing_mode, EnumClockEdge::FALLING)};
+      auto ratr{pin->get_request_arrival_time(timing_mode, EnumClockEdge::RISING)};
+      auto ratf{pin->get_request_arrival_time(timing_mode, EnumClockEdge::FALLING)};
+      if (!atr or !atf or !ratr or !ratf) {
+        continue;
+      }
+      float_t slack_r{};
+      float_t slack_f{};
+      switch (timing_mode) {
+        case EnumTimingMode::MAX:
+          slack_r = _clock_cycle - *ratr - *atr;
+          slack_f = _clock_cycle - *ratf - *atf;
+          break;
+        case EnumTimingMode::MIN:
+          slack_r = *atr - *ratr;
+          slack_f = *atf - *ratf;
+          break;
+        default:
+          break;
+      }
+      float_t slack{};
+      EnumClockEdge edge{};
+      if (slack_r < slack_f) {
+        slack = slack_r;
+        edge = EnumClockEdge::RISING;
+      } else {
+        slack = slack_f;
+        edge = EnumClockEdge::FALLING;
+      }
+      std::vector<path_t> path{};
+      while (true) {
+        const auto arrival_time{pin->get_arrival_time(timing_mode, edge)};
+        const auto slew{pin->get_slew(timing_mode, edge)};
+        LOG_ASSERT(arrival_time);
+        LOG_ASSERT(slew);
+        path.emplace_back(std::string{pin->get_name()}, edge, *arrival_time, slack, pin->get_capacitance(timing_mode, edge), *slew);
+        const auto predecessor{pin->get_predecessor(timing_mode, edge)};
+        if (!predecessor) {
+          std::ranges::reverse(path);
+          paths.push_back(path);
+          break;
+        }
+        edge = predecessor->first;
+        pin = predecessor->second->from_pin();
+      }
+    }
+    return paths;
+  };
+
+  for (const auto timing_mode : {EnumTimingMode::MAX, EnumTimingMode::MIN}) {
+    for (const auto end_type : {EnumPointType::REG, EnumPointType::OUT}) {
+      _report_cache[+start_type][+timing_mode][+end_type] = collect_paths(timing_mode, end_type);
+    }
+  }
+}
+
+const Timer::report_paths_t& Timer::report_timing(const EnumTimingMode timing_mode, const EnumPointType start_type, const EnumPointType end_type)
 {
   LOG_ASSERT(start_type != EnumPointType::OUT);
   LOG_ASSERT(end_type != EnumPointType::IN);
@@ -113,75 +219,9 @@ std::vector<std::vector<Timer::path_t>> Timer::report_timing(const EnumTimingMod
     LOG_WARNING << std::format("Warning: Clock not found, Trying to deduce clock pin...");
     deduce_clock();
   }
-
-  std::vector<std::vector<path_t>> paths{};
-  reset_arrival_time();
-
-  for (const auto& _pins{_circuit.get_toposorted_pins()}; auto* pin : _pins) {
-    if (start_type == EnumPointType::IN && pin == _clock_pin) {
-      continue;  // 不计算源于时钟的arc
-    }
-    if (start_type == EnumPointType::REG && pin->is_primary_input() && pin != _clock_pin) {
-      continue;  // 不计算来自input的arc
-    }
-    FOREACH_EL_FRF_TRF([&](auto el, auto frf, auto trf) { pin->propagate_arrival_time(el, frf, trf); });
-  }
-
-  for (const std::vector end_points{_circuit.get_all_pins() | std::views::filter([](auto& pin) { return pin->get_fanout().size() == 0; })
-                                    | std::ranges::to<std::vector<Pin*>>()};
-       const auto* end_point : end_points) {
-    if (end_type == EnumPointType::OUT && !end_point->is_primary_output()) {
-      continue;  // 终点在DUT的输出端口, Pin类型应当是primary output
-    }
-    if (end_type == EnumPointType::REG && !end_point->is_input()) {
-      continue;  // 终点在寄存器的D端口, Pin类型应当是input
-    }
-    const auto* pin{end_point};
-    auto atr{pin->get_arrival_time(timing_mode, EnumClockEdge::RISING)};
-    auto atf{pin->get_arrival_time(timing_mode, EnumClockEdge::FALLING)};
-    auto ratr{pin->get_request_arrival_time(timing_mode, EnumClockEdge::RISING)};
-    auto ratf{pin->get_request_arrival_time(timing_mode, EnumClockEdge::FALLING)};
-    if (!atr or !atf or !ratr or !ratf) {
-      continue;
-    }
-    float_t slack_r{};
-    float_t slack_f{};
-    switch (timing_mode) {
-      case EnumTimingMode::MAX:
-        slack_r = _clock_cycle - *ratr - *atr;
-        slack_f = _clock_cycle - *ratf - *atf;
-        break;
-      case EnumTimingMode::MIN:
-        slack_r = *atr - *ratr;
-        slack_f = *atf - *ratf;
-        break;
-      default:
-        break;
-    }
-    float_t slack{};
-    EnumClockEdge edge{};
-    if (slack_r < slack_f) {
-      slack = slack_r;
-      edge = EnumClockEdge::RISING;
-    } else {
-      slack = slack_f;
-      edge = EnumClockEdge::FALLING;
-    }
-    std::vector<path_t> path{};
-    while (true) {
-      path.emplace_back(std::string{pin->get_name()}, edge, pin, *(pin->get_arrival_time(timing_mode, edge)), slack);
-      const auto predecessor{pin->get_predecessor(timing_mode, edge)};
-      if (!predecessor) {
-        std::ranges::reverse(path);
-        paths.push_back(path);
-        break;
-      }
-      edge = predecessor->first;
-      pin = predecessor->second->from_pin();
-    }
-  }
-
-  return paths;
+  build_report_cache(start_type);
+  LOG_ASSERT(_report_cache[+start_type][+timing_mode][+end_type]);
+  return _report_cache[+start_type][+timing_mode][+end_type].value();
 }
 
 }  // namespace mySTA

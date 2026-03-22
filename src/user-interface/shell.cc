@@ -41,16 +41,12 @@ json convert_paths_to_json(EnumTimingMode timing_mode, const std::vector<std::ve
   for (const auto& path : paths) {
     json path_json = json::array();
     for (const auto& step : path) {
-      const auto* pin = step.pin;
-      const auto clock_edge = step.clock_edge;
-      const auto cap = pin->get_capacitance(timing_mode, clock_edge);
-      const auto trans = pin->get_slew(timing_mode, clock_edge);
       path_json.push_back({{"name", step.pin_name},
                            {"edge", *step.clock_edge},  // operator* 返回 std::string
                            {"at", step.arrival_time},
                            {"slack", step.slack},
-                           {"cap", cap},
-                           {"trans", trans}});
+                           {"cap", step.capacitance},
+                           {"trans", step.slew}});
     }
     result.push_back(std::move(path_json));
   }
@@ -88,7 +84,7 @@ json collect_all_timing_reports(Timer& timer)
 
   for (const auto& c : combos) {
     // 调用 timer 获取原始路径数据
-    auto paths = timer.report_timing(c.mode, c.start, c.end);
+    const auto& paths = timer.report_timing(c.mode, c.start, c.end);
     // 转换为 JSON 格式
     json paths_json = convert_paths_to_json(c.mode, paths);
     // 存入分类结构
@@ -371,7 +367,7 @@ static int cmd_report_timing(std::string_view arg)
   LOG_ASSERT(start);
   LOG_ASSERT(end);
   LOG_ASSERT(timing_mode);
-  auto paths = timer->report_timing(*timing_mode, *start, *end);
+  const auto& paths = timer->report_timing(*timing_mode, *start, *end);
   for (const auto& path : paths) {
     mySTA::float_t last_at{0};
     LOG_INFO << std::format("Timing Path(slack {:<.10f}):", path[0].slack);
@@ -380,11 +376,8 @@ static int cmd_report_timing(std::string_view arg)
       auto clock_edge{info.clock_edge};
       auto at{info.arrival_time};
       auto incr{at - last_at};
-      auto* pin{info.pin};
-      auto _cap{pin->get_capacitance(*timing_mode, clock_edge)};
-      auto slew{*pin->get_slew(*timing_mode, clock_edge)};
-      const auto& expected_at{pin->get_arrival_time(*timing_mode, clock_edge)};
-      LOG_ASSERT(expected_at && *expected_at == at) << std::format(" Expected {}? {}, get {}", bool(expected_at), *expected_at, at);
+      auto _cap{info.capacitance};
+      auto slew{info.slew};
       last_at = at;
       LOG_INFO << std::format("{:<15} cap: {:.10f} slew {:.10f} incr: {:.10f} ns, total_delay: {:.10f} {:<2}", name, _cap, slew, incr, at,
                               *clock_edge);
