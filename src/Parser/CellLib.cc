@@ -4,8 +4,6 @@
 
 #include "Parser/CellLib.h"
 
-#include <algorithm>
-#include <iterator>
 #include <ranges>
 
 #include "Arc.h"
@@ -32,81 +30,38 @@ Net& find_net(const std::string_view net_name);
 namespace mySTA {
 namespace {
 
-struct TableLutData
-{
-  std::vector<float_t> index_1;
-  std::vector<float_t> index_2;
-  std::vector<float_t> values;
-};
-
-std::vector<float_t> to_float_vector(const auto& attr_values)
-{
-  // std::vector<float_t> values;
-  // values.reserve(std::ranges::distance(attr_values));
-  // std::transform(attr_values.begin(), attr_values.end(), std::back_inserter(values),
-  //                [](const auto& attr_value) { return attr_value->getFloatValue(); });
-  // return values;
-
-  return attr_values | std::views::transform(&ista::LibAttrValue::getFloatValue)
-         | std::ranges::to<std::vector<float_t>>();
-  // The ranges::to version is intentionally left commented out because in the
-  // current toolchain it does not perform a single preallocation for this
-  // conversion, and local measurement showed repeated reallocations.
-}
-
-TableLutData extract_table_lut_data(ista::LibTable& table)
-{
-  const auto& axes{table.get_axes()};
-  LOG_ASSERT(axes.size() == 2);
-  const auto& axis_1{axes[0]};
-  const auto& axis_2{axes[1]};
-  LOG_ASSERT(std::string_view{"index_1"} == axis_1->get_axis_name());
-  LOG_ASSERT(std::string_view{"index_2"} == axis_2->get_axis_name());
-  return TableLutData{
-      .index_1 = to_float_vector(axis_1->get_axis_values()),
-      .index_2 = to_float_vector(axis_2->get_axis_values()),
-      .values = to_float_vector(table.get_table_values()),
-  };
-}
-
-Lut build_lut(ista::LibTable& table)
-{
-  auto lut_data{extract_table_lut_data(table)};
-  return Lut{std::move(lut_data.index_1), std::move(lut_data.index_2), std::move(lut_data.values)};
-}
-
-void load_delay_or_slew_lut(Arc& arc, ista::LibTable& table)
+void load_delay_or_slew_lut(CircuitBuilder& circuit_builder, Arc& arc, ista::LibTable& table)
 {
   using enum EnumClockEdge;
   using enum ista::LibTable::TableType;
   switch (table.get_table_type()) {
     case kCellRise:
-      arc.set_delay_lut(RISING, build_lut(table));
+      arc.set_delay_lut(RISING, circuit_builder.get_or_create_lut(table));
       break;
     case kCellFall:
-      arc.set_delay_lut(FALLING, build_lut(table));
+      arc.set_delay_lut(FALLING, circuit_builder.get_or_create_lut(table));
       break;
     case kRiseTransition:
-      arc.set_slew_lut(RISING, build_lut(table));
+      arc.set_slew_lut(RISING, circuit_builder.get_or_create_lut(table));
       break;
     case kFallTransition:
-      arc.set_slew_lut(FALLING, build_lut(table));
+      arc.set_slew_lut(FALLING, circuit_builder.get_or_create_lut(table));
       break;
     default:
       LOG_WARNING << std::format("Unknown table type {}", +table.get_table_type());
   }
 }
 
-void load_constraint_lut(Arc& arc, ista::LibTable& table)
+void load_constraint_lut(CircuitBuilder& circuit_builder, Arc& arc, ista::LibTable& table)
 {
   using enum EnumClockEdge;
   using enum ista::LibTable::TableType;
   switch (table.get_table_type()) {
     case kRiseConstrain:
-      arc.set_constraint_lut(RISING, build_lut(table));
+      arc.set_constraint_lut(RISING, circuit_builder.get_or_create_lut(table));
       break;
     case kFallConstrain:
-      arc.set_constraint_lut(FALLING, build_lut(table));
+      arc.set_constraint_lut(FALLING, circuit_builder.get_or_create_lut(table));
       break;
     default:
       LOG_WARNING << std::format("Unknown table type {}", +table.get_table_type());
@@ -125,7 +80,7 @@ void for_each_table(TableModel& model, TableLoader&& load_table)
   }
 }
 
-void populate_arc_luts(Arc& arc, ista::LibArc& arc_info)
+void populate_arc_luts(CircuitBuilder& circuit_builder, Arc& arc, ista::LibArc& arc_info)
 {
   auto* table_model{arc_info.get_table_model()};
   LOG_ASSERT(table_model);
@@ -133,13 +88,13 @@ void populate_arc_luts(Arc& arc, ista::LibArc& arc_info)
     auto* delay_table_model{dynamic_cast<ista::LibDelayTableModel*>(table_model)};
     LOG_ASSERT(delay_table_model);
     assert(delay_table_model);  // make clangd happy
-    for_each_table(*delay_table_model, [&](ista::LibTable& table) { load_delay_or_slew_lut(arc, table); });
+    for_each_table(*delay_table_model, [&](ista::LibTable& table) { load_delay_or_slew_lut(circuit_builder, arc, table); });
   }
   if (arc_info.isCheckArc()) {
     auto* check_table_model{dynamic_cast<ista::LibCheckTableModel*>(table_model)};
     LOG_ASSERT(check_table_model);
     assert(check_table_model);  // make clangd happy
-    for_each_table(*check_table_model, [&](ista::LibTable& table) { load_constraint_lut(arc, table); });
+    for_each_table(*check_table_model, [&](ista::LibTable& table) { load_constraint_lut(circuit_builder, arc, table); });
   }
 }
 
@@ -192,7 +147,7 @@ void CellLib::create_arcs()
     LOG_ASSERT(timing_type) << std::format(" Unknown timing type {}", *arc_info->get_timing_type());
     auto& arc{_circuit_builder.create_arc(from_pin_name, to_pin_name, *timing_type, *timing_sense, arc_info->isDelayArc())};
     _arcs.push_back(&arc);
-    populate_arc_luts(arc, *arc_info);
+    populate_arc_luts(_circuit_builder, arc, *arc_info);
   }
 }
 

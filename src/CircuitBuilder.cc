@@ -24,6 +24,29 @@
 #include "Pin.h"
 
 namespace mySTA {
+namespace {
+
+std::vector<float_t> to_float_vector(const auto& attr_values)
+{
+  return attr_values | std::views::transform(&ista::LibAttrValue::getFloatValue) | std::ranges::to<std::vector<float_t>>();
+}
+
+std::unique_ptr<LutData> create_lut_data(ista::LibTable& table)
+{
+  const auto& axes{table.get_axes()};
+  LOG_ASSERT(axes.size() == 2);
+  const auto& axis_1{axes[0]};
+  const auto& axis_2{axes[1]};
+  LOG_ASSERT(std::string_view{"index_1"} == axis_1->get_axis_name());
+  LOG_ASSERT(std::string_view{"index_2"} == axis_2->get_axis_name());
+  return std::make_unique<LutData>(LutData{
+      .index_1 = to_float_vector(axis_1->get_axis_values()),
+      .index_2 = to_float_vector(axis_2->get_axis_values()),
+      .values = to_float_vector(table.get_table_values()),
+  });
+}
+
+}  // namespace
 
 Pin& CircuitBuilder::create_pin(const std::string_view pin_name, const EnumPinType pin_type)
 {
@@ -72,6 +95,15 @@ Net& CircuitBuilder::find_net(const std::string_view net_name)
   return *it->second;
 }
 
+Lut CircuitBuilder::get_or_create_lut(ista::LibTable& table)
+{
+  const auto [it, inserted]{lut_cache.try_emplace(&table)};
+  if (inserted) {
+    it->second = create_lut_data(table);
+  }
+  return Lut{it->second.get()};
+}
+
 CircuitBuilder& CircuitBuilder::create_nets(const std::vector<std::string>& _wires)
 {
   for (const auto& wire_name : _wires) {
@@ -104,9 +136,9 @@ CircuitBuilder& CircuitBuilder::create_primary_io(const std::vector<std::string>
 CircuitBuilder& CircuitBuilder::create_cells(const std::vector<VerilogModule::instance_t>& instances)
 {
   for (const auto& [instance_name, module_name, port_list] : instances) {
-    auto cell {_liberty_parser.select_cell(module_name)};
-    LOG_ASSERT(cell) <<  std::format("Could not find module {} in Liberty for Verilog file {}",
-                           module_name, _verilog_parser.get_verilog_file_name());
+    auto cell{_liberty_parser.select_cell(module_name)};
+    LOG_ASSERT(cell) << std::format("Could not find module {} in Liberty for Verilog file {}", module_name,
+                                    _verilog_parser.get_verilog_file_name());
     cells.emplace_back(std::make_unique<CellLib>(instance_name, module_name, *cell, port_list, *this));
   }
   return *this;

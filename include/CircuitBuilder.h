@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <unordered_map>
 
 #include "Enum/EnumPinType.h"
 #include "Enum/EnumTimingSense.h"
@@ -40,6 +41,7 @@ class CircuitBuilder
   std::vector<std::string> primary_inputs{};
   std::vector<std::string> primary_outputs{};
   std::vector<std::unique_ptr<CellLib>> cells{};
+  std::unordered_map<const ista::LibTable*, std::unique_ptr<LutData>> lut_cache{};
   std::optional<std::vector<Pin*>> all_pins_cache{};
   std::optional<std::vector<Pin*>> toposorted_pins{};
 
@@ -61,6 +63,7 @@ class CircuitBuilder
   Arc& create_arc(std::string_view from, std::string_view to, EnumTimingType timing_type, EnumTimingSense timing_sense, bool is_delay_arc);
   Net& create_net(const std::string_view& net_name);
   Net& find_net(std::string_view net_name);
+  Lut get_or_create_lut(ista::LibTable& table);
   CircuitBuilder& build_circuit();
 
   const std::vector<Pin*>& get_all_pins();
