@@ -6,9 +6,13 @@
 #include <readline/history.h>
 #include <readline/readline.h>
 
+#include <algorithm>
 #include <Log.hh>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
+#include <sstream>
 
 #include "Arc.h"
 #include "CircuitBuilder.h"
@@ -34,6 +38,119 @@ using mySTA::operator*;
 using mySTA::operator+;
 using mySTA::SPACE_DELIMITER;
 using mySTA::strip;
+
+std::string current_time_string()
+{
+  const auto now{std::time(nullptr)};
+  std::tm local_time{};
+  localtime_r(&now, &local_time);
+  std::ostringstream oss;
+  oss << std::put_time(&local_time, "%a %b %d %H:%M:%S %Y");
+  return oss.str();
+}
+
+std::string format_point_type(const EnumPointType point_type)
+{
+  switch (point_type) {
+    case EnumPointType::IN:
+      return "in";
+    case EnumPointType::REG:
+      return "reg";
+    case EnumPointType::OUT:
+      return "out";
+    default:
+      return "unknown";
+  }
+}
+
+std::string format_path_type_name(const EnumPointType start_type, const EnumPointType end_type)
+{
+  return std::format("{}_to_{}", format_point_type(start_type), format_point_type(end_type));
+}
+
+std::string format_slack_status(const float slack)
+{
+  return slack >= 0 ? "MET" : "VIOLATED";
+}
+
+void print_report_header(const EnumTimingMode timing_mode, const EnumPointType start_type, const EnumPointType end_type, const float slack_lesser_than,
+                         const int max_paths, const bool print_transition, const bool print_capacitance, const bool nosplit,
+                         const std::string_view pba_mode, const std::string_view design_name)
+{
+  LOG_INFO << "****************************************";
+  LOG_INFO << "Report : timing";
+  LOG_INFO << "\t-path_type full";
+  LOG_INFO << std::format("\t-delay_type {}", *timing_mode);
+  LOG_INFO << std::format("\t-slack_lesser_than {:.10f}", slack_lesser_than);
+  LOG_INFO << std::format("\t-max_paths {}", max_paths);
+  LOG_INFO << std::format("\t-start_end_type {}", format_path_type_name(start_type, end_type));
+  if (print_transition) {
+    LOG_INFO << "\t-transition_time";
+  }
+  if (print_capacitance) {
+    LOG_INFO << "\t-capacitance";
+  }
+  if (nosplit) {
+    LOG_INFO << "\t-nosplit";
+  }
+  if (!pba_mode.empty()) {
+    LOG_INFO << std::format("\t-pba_mode {}", pba_mode);
+  }
+  LOG_INFO << "\t-sort_by slack";
+  LOG_INFO << std::format("Design : {}", design_name);
+  LOG_INFO << "Version: U-2022.12-SP3";
+  LOG_INFO << std::format("Date   : {}", current_time_string());
+  LOG_INFO << "****************************************";
+  LOG_INFO << "";
+}
+
+void print_path_report(const std::vector<Timer::path_t>& path, const EnumTimingMode timing_mode, const bool print_capacitance, const bool print_transition)
+{
+  LOG_ASSERT(!path.empty());
+  const auto& start_point{path.front()};
+  const auto& end_point{path.back()};
+  const auto slack{end_point.slack};
+
+  LOG_INFO << std::format("  Startpoint: {}", start_point.pin_name);
+  LOG_INFO << std::format("  Endpoint: {}", end_point.pin_name);
+  LOG_INFO << "  Last common pin: N/A";
+  LOG_INFO << "  Path Group: clk";
+  LOG_INFO << std::format("  Path Type: {}", *timing_mode);
+  LOG_INFO << "";
+
+  std::string header{"  Point                                 "};
+  if (print_capacitance) {
+    header += "Cap           ";
+  }
+  if (print_transition) {
+    header += "Trans         ";
+  }
+  header += "Incr          Path";
+  LOG_INFO << header;
+  LOG_INFO << "  -----------------------------------------------------------------------------";
+
+  mySTA::float_t last_at{0};
+  for (const auto& info : path) {
+    const auto incr{info.arrival_time - last_at};
+    last_at = info.arrival_time;
+
+    std::string line{std::format("  {:<37}", info.pin_name)};
+    if (print_capacitance) {
+      line += std::format("{:<14.10f}", info.capacitance);
+    }
+    if (print_transition) {
+      line += std::format("{:<14.10f}", info.slew);
+    }
+    line += std::format("{:<14.10f}{:.10f} {}", incr, info.arrival_time, *info.clock_edge);
+    LOG_INFO << line;
+  }
+
+  LOG_INFO << std::format("  data arrival time{:>53.10f}", end_point.arrival_time);
+  LOG_INFO << "  -----------------------------------------------------------------------------";
+  LOG_INFO << std::format("  slack ({}){:>64.10f}", format_slack_status(slack), slack);
+  LOG_INFO << "";
+  LOG_INFO << "";
+}
 
 json convert_paths_to_json(EnumTimingMode timing_mode, const std::vector<std::vector<Timer::path_t>>& paths)
 {
@@ -317,8 +434,8 @@ static int cmd_report_timing(std::string_view arg)
   bool nosplit = false;
   std::string delay_type{};
   std::string pba_mode{};
-  int max_paths{};
-  int slack_lesser_than{};
+  int max_paths{1000};
+  float slack_lesser_than{1000.0};
   std::string start_end_type{};
   while ((opt = getopt_long(argc, argv.data(), "-ctnd:p:m:s:T:", table, &option_index)) != -1) {
     switch (opt) {
@@ -341,7 +458,7 @@ static int cmd_report_timing(std::string_view arg)
         max_paths = std::stoi(optarg);
         break;
       case 's':  // -slack_lesser_than
-        slack_lesser_than = std::stoi(optarg);
+        slack_lesser_than = std::stof(optarg);
         break;
       case 'T':
         start_end_type = optarg;
@@ -368,21 +485,27 @@ static int cmd_report_timing(std::string_view arg)
   LOG_ASSERT(end);
   LOG_ASSERT(timing_mode);
   const auto& paths = timer->report_timing(*timing_mode, *start, *end);
+  std::vector<const std::vector<Timer::path_t>*> selected_paths{};
+  selected_paths.reserve(paths.size());
   for (const auto& path : paths) {
-    mySTA::float_t last_at{0};
-    LOG_INFO << std::format("Timing Path(slack {:<.10f}):", path[0].slack);
-    for (const auto& info : path) {
-      std::string_view name{info.pin_name};
-      auto clock_edge{info.clock_edge};
-      auto at{info.arrival_time};
-      auto incr{at - last_at};
-      auto _cap{info.capacitance};
-      auto slew{info.slew};
-      last_at = at;
-      LOG_INFO << std::format("{:<15} cap: {:.10f} slew {:.10f} incr: {:.10f} ns, total_delay: {:.10f} {:<2}", name, _cap, slew, incr, at,
-                              *clock_edge);
+    if (!path.empty() && path.back().slack <= slack_lesser_than) {
+      selected_paths.push_back(&path);
     }
-    LOG_INFO << "------------------------------------------------------------";
+  }
+  std::ranges::sort(selected_paths, [](const auto* lhs, const auto* rhs) { return lhs->back().slack < rhs->back().slack; });
+  if (selected_paths.size() > static_cast<std::size_t>(max_paths)) {
+    selected_paths.resize(max_paths);
+  }
+
+  const auto design_name{verilog_parser->get_top_module().get_module_name()};
+  print_report_header(*timing_mode, *start, *end, slack_lesser_than, max_paths, print_transition, print_capacitance, nosplit, pba_mode, design_name);
+  if (selected_paths.empty()) {
+    LOG_INFO << "No constrained paths.";
+    return 0;
+  }
+
+  for (const auto* path : selected_paths) {
+    print_path_report(*path, *timing_mode, print_capacitance, print_transition);
   }
   return 0;
 }
@@ -441,7 +564,7 @@ static int main(int argc, char* argv[])
       add_history(line.c_str());
       // 返回-1表示退出
       if (run_command(line) < 0) {
-        break;
+        return 0;
       }
     }
   }
