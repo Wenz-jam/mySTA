@@ -50,9 +50,9 @@ class Arc
   void set_timing_sense(EnumTimingSense timing_sense);
   [[nodiscard]] std::optional<EnumTimingSense> get_timing_sense() const{return _timing_sense;};
 
-  void set_delay_lut(EnumClockEdge clock_edge, const lut_t& lut);
-  void set_slew_lut(EnumClockEdge clock_edge, const lut_t& lut);
-  void set_constraint_lut(EnumClockEdge clock_edge, const lut_t& lut);
+  void set_delay_lut(EnumClockEdge clock_edge, lut_t lut);
+  void set_slew_lut(EnumClockEdge clock_edge, lut_t lut);
+  void set_constraint_lut(EnumClockEdge clock_edge, lut_t lut);
 
   [[nodiscard]] std::string_view get_name() { return _name; }
 

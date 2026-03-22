@@ -48,19 +48,19 @@ void Arc::set_timing_sense(EnumTimingSense timing_sense)
   _timing_sense = timing_sense;
 }
 
-void Arc::set_delay_lut(const EnumClockEdge clock_edge, const lut_t& lut)
+void Arc::set_delay_lut(const EnumClockEdge clock_edge, lut_t lut)
 {
   LOG_ASSERT(!_delay_luts[+clock_edge]) << std::format(" _delay_luts[{}] already has value!", *clock_edge);
-  _delay_luts[+clock_edge] = lut;
+  _delay_luts[+clock_edge] = std::move(lut);
 }
 
-void Arc::set_slew_lut(const EnumClockEdge clock_edge, const lut_t& lut)
+void Arc::set_slew_lut(const EnumClockEdge clock_edge, lut_t lut)
 {
   LOG_ASSERT(!_slew_luts[+clock_edge]) << std::format(" _slew_luts[{}] already has value!", *clock_edge);
-  _slew_luts[+clock_edge] = lut;
+  _slew_luts[+clock_edge] = std::move(lut);
 }
 
-void Arc::set_constraint_lut(const EnumClockEdge clock_edge, const lut_t& lut)
+void Arc::set_constraint_lut(const EnumClockEdge clock_edge, lut_t lut)
 {
   LOG_ASSERT(!_constraint_luts[+clock_edge]) << std::format(" _constraint_luts[{}] already has value!", *clock_edge);
   _constraint_luts[+clock_edge] = std::move(lut);
