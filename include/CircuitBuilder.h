@@ -8,23 +8,23 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 
 #include "Enum/EnumPinType.h"
 #include "Enum/EnumTimingSense.h"
 #include "Enum/EnumTimingType.h"
-#include "Parser/CellLib.h"
 #include "Parser/LibertyParser.h"
 #include "Parser/VerilogModule.h"
 #include "Pin.h"
 
 namespace mySTA {
 
-class CellLib;
-
 class CircuitBuilder
 {
+  class CellInst;
+
   struct string_hash
   {
     using is_transparent = void;  // 启用透明查找
@@ -40,8 +40,8 @@ class CircuitBuilder
   std::vector<std::unique_ptr<Arc>> constraint_arcs{};
   std::vector<std::string> primary_inputs{};
   std::vector<std::string> primary_outputs{};
-  std::vector<std::unique_ptr<CellLib>> cells{};
-  std::unordered_map<const ista::LibTable*, std::unique_ptr<LutData>> lut_cache{};
+  std::vector<std::unique_ptr<CellInst>> cells{};
+  std::unordered_map<std::string, std::string, string_hash, std::equal_to<>> instance_modules{};
   std::optional<std::vector<Pin*>> all_pins_cache{};
   std::optional<std::vector<Pin*>> toposorted_pins{};
 
@@ -56,6 +56,7 @@ class CircuitBuilder
 
  public:
   CircuitBuilder(VerilogParser& verilog_parser, LibertyParser& liberty_parser);
+  ~CircuitBuilder();
 
   Pin& create_pin(std::string_view pin_name, EnumPinType pin_type);
   Pin& find_pin(std::string_view pin_name);
@@ -63,7 +64,6 @@ class CircuitBuilder
   Arc& create_arc(std::string_view from, std::string_view to, EnumTimingType timing_type, EnumTimingSense timing_sense, bool is_delay_arc);
   Net& create_net(const std::string_view& net_name);
   Net& find_net(std::string_view net_name);
-  Lut get_or_create_lut(ista::LibTable& table);
   CircuitBuilder& build_circuit();
 
   const std::vector<Pin*>& get_all_pins();
@@ -71,7 +71,8 @@ class CircuitBuilder
   std::vector<Pin*> get_primary_outputs();
   std::vector<Pin*> get_primary_inputs();
   std::vector<Arc*> get_constraint_arcs();
-  std::vector<CellLib*> get_all_cells();
+  const Pin* deduce_clock() const;
+  [[nodiscard]] std::optional<std::string_view> get_instance_module_name(std::string_view instance_name) const;
   std::vector<Arc*> get_all_arcs()
   {
     std::vector<Arc*> result;

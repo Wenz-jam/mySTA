@@ -115,15 +115,7 @@ void Timer::reset_request_arrival_time()
 const Pin* Timer::deduce_clock()
 {
   if (_clock_pin == nullptr) {
-    for (const auto _cells{_circuit.get_all_cells()}; const auto* cell : _cells) {
-      const auto& port_mapping{cell->get_port_mapping()};
-      if (auto iter{port_mapping.find("CK")}; iter != port_mapping.end()) {
-        if (const auto& clock_pin{_circuit.find_pin(iter->second)}; clock_pin.is_primary_input()) {
-          _clock_pin = &clock_pin;
-          return _clock_pin;
-        }
-      }
-    }
+    _clock_pin = _circuit.deduce_clock();
   }
   return _clock_pin;
 }

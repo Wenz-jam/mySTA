@@ -241,15 +241,19 @@ void Visualizer::visualize(const std::string& output_file)
   agset(dut, (char*) "label", (char*) "DUT");
   agset(dut, (char*) "color", (char*) "lightgray");
 
-  // 为每个 cell 创建子图（模块子图）
+  // 为每个 instance 创建子图。
   std::map<std::string, Agraph_t*> cell_subgraphs;
-  for (CellLib* cell : circuit_.get_all_cells()) {
-    std::string cluster_name = std::format("cluster_{}", cell->get_instance_name());
+  for (Pin* pin : circuit_.get_all_pins()) {
+    auto module_opt = get_instance_name(*pin);
+    if (!module_opt || cell_subgraphs.contains(*module_opt)) {
+      continue;
+    }
+    std::string cluster_name = std::format("cluster_{}", *module_opt);
     Agraph_t* subg = agsubg(dut, (char*) cluster_name.c_str(), 1);
-    std::string cell_label = std::format("{}\n{}", cell->get_module_name(), cell->get_instance_name());
+    const auto module_name{circuit_.get_instance_module_name(*module_opt)};
+    std::string cell_label = module_name ? std::format("{}\n{}", *module_name, *module_opt) : std::string{*module_opt};
     agset(subg, (char*) "label", (char*) cell_label.c_str());
-    // 可以设置 fillcolor 等属性
-    cell_subgraphs[std::string{cell->get_instance_name()}] = subg;
+    cell_subgraphs[std::string{*module_opt}] = subg;
   }
 
   // 添加 Primary Inputs 节点

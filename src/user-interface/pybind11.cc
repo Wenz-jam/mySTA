@@ -10,6 +10,7 @@
 #include "CircuitBuilder.h"
 #include "Log.hh"
 #include "Parser/LibertyParser.h"
+#include "Parser/VerilogParser.h"
 #include "Timer.h"
 #include "common.h"
 #include "utils.h"

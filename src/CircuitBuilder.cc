@@ -19,34 +19,72 @@
 #include "Enum/EnumTimingType.h"
 #include "Log.hh"
 #include "Net.h"
+#include "Parser/CellLib.h"
 #include "Parser/VerilogModule.h"
 #include "Parser/VerilogParser.h"
 #include "Pin.h"
 
 namespace mySTA {
-namespace {
 
-std::vector<float_t> to_float_vector(const auto& attr_values)
+class CircuitBuilder::CellInst
 {
-  return attr_values | std::views::transform(&ista::LibAttrValue::getFloatValue) | std::ranges::to<std::vector<float_t>>();
-}
+  std::string _instance_name;
+  std::unordered_map<std::string, std::string> _port_mapping;
+  const CellLib& _cell_lib;
+  std::unordered_map<std::string, Pin*> _pins{};
+  CircuitBuilder& _builder;
 
-std::unique_ptr<LutData> create_lut_data(ista::LibTable& table)
-{
-  const auto& axes{table.get_axes()};
-  LOG_ASSERT(axes.size() == 2);
-  const auto& axis_1{axes[0]};
-  const auto& axis_2{axes[1]};
-  LOG_ASSERT(std::string_view{"index_1"} == axis_1->get_axis_name());
-  LOG_ASSERT(std::string_view{"index_2"} == axis_2->get_axis_name());
-  return std::make_unique<LutData>(LutData{
-      .index_1 = to_float_vector(axis_1->get_axis_values()),
-      .index_2 = to_float_vector(axis_2->get_axis_values()),
-      .values = to_float_vector(table.get_table_values()),
-  });
-}
+  [[nodiscard]] std::string pin_name(std::string_view port_name) const { return std::format("{}/{}", _instance_name, port_name); }
 
-}  // namespace
+ public:
+  CellInst(std::string_view instance_name, const CellLib& cell_lib, const std::vector<VerilogModule::port_list_t>& port_list, CircuitBuilder& builder)
+      : _instance_name{instance_name}, _port_mapping{port_list | std::ranges::to<decltype(_port_mapping)>()}, _cell_lib{cell_lib}, _builder{builder}
+  {
+  }
+
+  [[nodiscard]] const std::unordered_map<std::string, std::string>& get_port_mapping() const { return _port_mapping; }
+  [[nodiscard]] std::string_view get_instance_name() const { return _instance_name; }
+
+  void create_pins()
+  {
+    for (const auto& port_data : _cell_lib.get_ports()) {
+      auto& pin{_builder.create_pin(pin_name(port_data.name), port_data.pin_type)};
+      FOREACH_EL_RF([&](const auto timing_mode, const auto clock_edge) {
+        pin.set_capacitance(timing_mode, clock_edge, port_data.capacitance[+timing_mode][+clock_edge]);
+      });
+      _pins.try_emplace(port_data.name, &pin);
+    }
+  }
+
+  void connect_pins_to_nets()
+  {
+    for (const auto& [port_name, pin] : _pins) {
+      if (const auto it{_port_mapping.find(port_name)}; it != _port_mapping.end()) {
+        auto& net{_builder.find_net(it->second)};
+        pin->connect_to(net);
+      }
+    }
+  }
+
+  void create_arcs()
+  {
+    for (const auto& arc_data : _cell_lib.get_arcs()) {
+      auto& arc{
+          _builder.create_arc(pin_name(arc_data.src_port), pin_name(arc_data.snk_port), arc_data.timing_type, arc_data.timing_sense, arc_data.is_delay_arc)};
+      for (const auto clock_edge : {EnumClockEdge::RISING, EnumClockEdge::FALLING}) {
+        if (arc_data.delay_luts[+clock_edge]) {
+          arc.set_delay_lut(clock_edge, *arc_data.delay_luts[+clock_edge]);
+        }
+        if (arc_data.slew_luts[+clock_edge]) {
+          arc.set_slew_lut(clock_edge, *arc_data.slew_luts[+clock_edge]);
+        }
+        if (arc_data.constraint_luts[+clock_edge]) {
+          arc.set_constraint_lut(clock_edge, *arc_data.constraint_luts[+clock_edge]);
+        }
+      }
+    }
+  }
+};
 
 Pin& CircuitBuilder::create_pin(const std::string_view pin_name, const EnumPinType pin_type)
 {
@@ -95,15 +133,6 @@ Net& CircuitBuilder::find_net(const std::string_view net_name)
   return *it->second;
 }
 
-Lut CircuitBuilder::get_or_create_lut(ista::LibTable& table)
-{
-  const auto [it, inserted]{lut_cache.try_emplace(&table)};
-  if (inserted) {
-    it->second = create_lut_data(table);
-  }
-  return Lut{it->second.get()};
-}
-
 CircuitBuilder& CircuitBuilder::create_nets(const std::vector<std::string>& _wires)
 {
   for (const auto& wire_name : _wires) {
@@ -135,11 +164,14 @@ CircuitBuilder& CircuitBuilder::create_primary_io(const std::vector<std::string>
 
 CircuitBuilder& CircuitBuilder::create_cells(const std::vector<VerilogModule::instance_t>& instances)
 {
+  cells.clear();
+  instance_modules.clear();
   for (const auto& [instance_name, module_name, port_list] : instances) {
     auto cell{_liberty_parser.select_cell(module_name)};
     LOG_ASSERT(cell) << std::format("Could not find module {} in Liberty for Verilog file {}", module_name,
                                     _verilog_parser.get_verilog_file_name());
-    cells.emplace_back(std::make_unique<CellLib>(instance_name, module_name, *cell, port_list, *this));
+    instance_modules.emplace(instance_name, module_name);
+    cells.emplace_back(std::make_unique<CellInst>(instance_name, cell->get(), port_list, *this));
   }
   return *this;
 }
@@ -174,6 +206,8 @@ CircuitBuilder::CircuitBuilder(VerilogParser& verilog_parser, LibertyParser& lib
     : _verilog_parser(verilog_parser), _liberty_parser(liberty_parser)
 {
 }
+
+CircuitBuilder::~CircuitBuilder() = default;
 
 CircuitBuilder& CircuitBuilder::build_circuit()
 {
@@ -257,9 +291,26 @@ std::vector<Arc*> CircuitBuilder::get_constraint_arcs()
 {
   return constraint_arcs | std::views::transform(&std::unique_ptr<Arc>::get) | std::ranges::to<std::vector<Arc*>>();
 }
-std::vector<CellLib*> CircuitBuilder::get_all_cells()
+
+const Pin* CircuitBuilder::deduce_clock() const
 {
-  return cells | std::views::transform(&std::unique_ptr<CellLib>::get) | std::ranges::to<std::vector<CellLib*>>();
+  for (const auto& cell : cells) {
+    const auto& port_mapping{cell->get_port_mapping()};
+    if (const auto iter{port_mapping.find("CK")}; iter != port_mapping.end()) {
+      if (const auto& clock_pin{const_cast<CircuitBuilder*>(this)->find_pin(iter->second)}; clock_pin.is_primary_input()) {
+        return &clock_pin;
+      }
+    }
+  }
+  return nullptr;
+}
+
+std::optional<std::string_view> CircuitBuilder::get_instance_module_name(const std::string_view instance_name) const
+{
+  if (const auto it{instance_modules.find(instance_name)}; it != instance_modules.end()) {
+    return it->second;
+  }
+  return std::nullopt;
 }
 
 }  // namespace mySTA

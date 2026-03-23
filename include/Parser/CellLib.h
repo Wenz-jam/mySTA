@@ -5,44 +5,55 @@
 #ifndef MYSTA_CELLLIB_H
 #define MYSTA_CELLLIB_H
 
+#include <optional>
+#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "Arc.h"
-#include "CircuitBuilder.h"
-#include "Lib.hh"
-#include "VerilogParser.h"
+#include "Enum/EnumPinType.h"
+#include "Enum/EnumTimingSense.h"
+#include "Enum/EnumTimingType.h"
+#include "Lut.h"
+#include "common.h"
+#include "utils.h"
 
 namespace mySTA {
 
-class Pin;
-class VerilogParser;
-class CircuitBuilder;
-
 class CellLib
 {
-  std::string _instance_name;
-  std::string _module_name;
-  ista::LibCell* _cell;
-  std::unordered_map<std::string, std::string> _port_mapping;  // cell_port -> net_name
-  std::unordered_map<std::string, Pin*> _pins{};
-  std::vector<Arc*> _arcs{};
-  std::string _pin_name(auto port_name) const { return std::format("{}/{}", _instance_name, port_name); }
+ public:
+  struct PortData
+  {
+    std::string name;
+    EnumPinType pin_type;
+    nd_array<float_t, TimingModeCount, ClockEdgeCount> capacitance{};
+  };
 
-  CircuitBuilder& _circuit_builder;
+  struct ArcData
+  {
+    std::string src_port;
+    std::string snk_port;
+    EnumTimingType timing_type;
+    EnumTimingSense timing_sense;
+    bool is_delay_arc;
+    nd_array<std::optional<Arc::lut_t>, ClockEdgeCount> delay_luts{};
+    nd_array<std::optional<Arc::lut_t>, ClockEdgeCount> slew_luts{};
+    nd_array<std::optional<Arc::lut_t>, ClockEdgeCount> constraint_luts{};
+  };
+
+ private:
+  std::string _module_name;
+  std::vector<PortData> _ports{};
+  std::vector<ArcData> _arcs{};
+  std::vector<std::unique_ptr<LutData>> _luts{};
 
  public:
-  CellLib(std::string_view instance_name, std::string_view module_name, ista::LibCell* cell, const std::vector<VerilogModule::port_list_t>& port_list,
-          CircuitBuilder& builder);
+  CellLib(std::string_view module_name, std::vector<PortData> ports, std::vector<ArcData> arcs, std::vector<std::unique_ptr<LutData>> luts);
 
-  void create_pins();
-  void create_arcs();
-  const std::unordered_map<std::string, Pin*>& get_pins() const;
-  const std::unordered_map<std::string, std::string>& get_port_mapping() const { return _port_mapping; }
-  void connect_pins_to_nets();
-  std::string_view get_module_name() const { return _module_name; }
-  std::string_view get_instance_name() const { return _instance_name; }
+  [[nodiscard]] std::string_view get_module_name() const { return _module_name; }
+  [[nodiscard]] const std::vector<PortData>& get_ports() const { return _ports; }
+  [[nodiscard]] const std::vector<ArcData>& get_arcs() const { return _arcs; }
 };
 
 }  // namespace mySTA
