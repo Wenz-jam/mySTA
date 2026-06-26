@@ -1,7 +1,7 @@
 from Visualizer import Visualizer
-from read_liberty import libs as library
+from read_liberty import libs as library, link_lib, read_liberties
 from CircuitBuilder import CircuitBuilder, build_circuit
-from VerilogParser import VerilogParser
+from read_verilog import VerilogParser
 from Pin import Pin
 from EnumClass import FOREACH_EL_FRF_TRF, FOREACH_EL_RF, EnumClockEdge, EnumPinType, EnumTimingMode
 from Arc import Arc, EnumTimingSense
@@ -13,21 +13,35 @@ __debug_export__ = {
     "all_timing_paths": None
 }
 
+DEFAULT_LIBERTY_FILES = [
+    "/home/wenz/git/mySTA/pdk/icsprout55/IP/STD_cell/ics55_LLSC_H7C_V1p10C100/ics55_LLSC_H7CL/liberty/ics55_LLSC_H7CL_typ_tt_1p2_25_nldm.lib",
+    "/home/wenz/git/mySTA/pdk/icsprout55/IP/STD_cell/ics55_LLSC_H7C_V1p10C100/ics55_LLSC_H7CR/liberty/ics55_LLSC_H7CR_typ_tt_1p2_25_nldm.lib",
+]
+
+
+def _collect_cell_names(module):
+    return {
+        instance["module"]
+        for instance in module.instances.values()
+        if instance["module"] != "__assign__"
+    }
+
 
 
 def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     if __name__ == '__main__':
-        verilog_file = "/home/wenz/git/mySTA/report/Booth_Multiplier/Booth_Multiplier.v"
-        verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
-        verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/Booth_Multiplier/Booth_Multiplier.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/ascon/ascon.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/s9234/s9234.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s5378/s5378.v"
-        verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"
         # verilog_file = "/home/wenz/git/mySTA/report/s1238/s1238.v"
         # verilog_file = "/home/wenz/git/mySTA/report/r8051/r8051.v"
-        verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
+        # verilog_file = "/home/wenz/git/mySTA/report/simpleuart/simpleuart.v"
         # verilog_file = '/home/wenz/git/mySTA/example/gcd.netlist.v'
         # verilog_file = '/home/wenz/git/mySTA/example/ysyx_23060004.netlist.v'
-        verilog_file = "./report/serdes_top/serdes_top.v"
+        # verilog_file = "./report/serdes_top/serdes_top.v"
+        pass
     top_module = "top"
     parser = VerilogParser()
     modules = parser.parse_file(verilog_file)
@@ -37,6 +51,9 @@ def main(verilog_file = "/home/wenz/git/mySTA/report/simple/simple.v"):
     else:
         module = modules.get(top_module, None)
         assert module is not None, f"Top module {top_module} not found in {verilog_file}"
+
+    read_liberties(DEFAULT_LIBERTY_FILES)
+    link_lib(_collect_cell_names(module))
 
     # 构建电路
     circuit = build_circuit(library, module)

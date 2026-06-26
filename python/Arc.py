@@ -1,5 +1,6 @@
 from enum import Enum
 import sys
+import numpy as np
 from Pin import Pin
 from Interpolator import RegularGridInterpolator
 from EnumClass import ALL_CLOCK_EDGES, ALL_TIMING_MODES, EnumClockEdge, EnumTimingMode, EnumTimingSense, EnumTimingType
@@ -12,16 +13,39 @@ class Lut:
             self.index_1 = [1e8]
             self.index_2 = [1e8]
             self.lut_values = [[0.0]]
+            self.interpolator = None
             return
-        self.index_1 = lut_group.get_array('index_1')[0]
-        self.index_2 = lut_group.get_array('index_2')[0]
-        self.lut_values = lut_group.get_array('values')
-        self.interpolator = RegularGridInterpolator(
-            lut_group.get_array('index_1')[0], 
-            lut_group.get_array('index_2')[0],
-            lut_group.get_array('values'))
+        if hasattr(lut_group, "kind"):
+            self.kind = lut_group.kind
+            if self.kind == "zero":
+                self.index_1 = [1e8]
+                self.index_2 = [1e8]
+                self.lut_values = [[0.0]]
+                self.interpolator = None
+                return
+            if self.kind == "pass_through":
+                self.index_1 = [1e8]
+                self.index_2 = [1e8]
+                self.lut_values = [[0.0]]
+                self.interpolator = None
+                return
+            self.index_1 = np.asarray(lut_group.index_1, dtype=float)
+            self.index_2 = np.asarray(lut_group.index_2, dtype=float)
+            values = np.asarray(lut_group.values, dtype=float)
+            self.lut_values = values.reshape((len(self.index_1), len(self.index_2)))
+            self.interpolator = RegularGridInterpolator(self.index_1, self.index_2, self.lut_values)
+            return
+        self.kind = "lut"
+        self.index_1 = np.asarray(lut_group.get_array('index_1')[0], dtype=float)
+        self.index_2 = np.asarray(lut_group.get_array('index_2')[0], dtype=float)
+        self.lut_values = np.asarray(lut_group.get_array('values'), dtype=float)
+        self.interpolator = RegularGridInterpolator(self.index_1, self.index_2, self.lut_values)
     
     def get_value(self, x, y):
+        if getattr(self, "kind", None) == "zero":
+            return 0.0
+        if getattr(self, "kind", None) == "pass_through":
+            return x
         return self.interpolator.interpolate(x, y)
         i = 0
         for idx, index in enumerate(self.index_1):

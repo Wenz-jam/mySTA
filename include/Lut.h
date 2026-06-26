@@ -51,6 +51,8 @@ class Lut
     LOG_ASSERT(_data->index_1.size() * _data->index_2.size() == _data->values.size());
   }
 
+  [[nodiscard]] const LutData& get_data() const { return *_data; }
+
   [[nodiscard]] constexpr float_t get_value(const float_t x0, const float_t y0) const
   {
     const std::size_t i{get_index(_data->index_1, x0)};

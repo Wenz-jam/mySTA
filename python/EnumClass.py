@@ -12,10 +12,11 @@ class EnumPinType(Enum):
             'input': EnumPinType.INPUT,
             'output': EnumPinType.OUTPUT,
             'primary_input': EnumPinType.PRIMARY_INPUT,
-            'primary_output': EnumPinType.PRIMARY_OUTPUT
+            'primary_output': EnumPinType.PRIMARY_OUTPUT,
         }
-        assert value.lower() in mapping, f"Unknown pin type: {value}"
-        return mapping.get(value.lower())
+        key = value.lower()
+        assert key in mapping, f"Unknown pin type: {value}"
+        return mapping.get(key)
 
 ALL_PIN_TYPES = [EnumPinType.PRIMARY_INPUT, EnumPinType.PRIMARY_OUTPUT, EnumPinType.INPUT, EnumPinType.OUTPUT]
 
@@ -73,11 +74,15 @@ class EnumTimingSense(Enum):
     def to_enum(value: str):
         mapping = {
             'positive_unate': EnumTimingSense.POS_UNATE,
+            'pos_unate': EnumTimingSense.POS_UNATE,
             'negative_unate': EnumTimingSense.NEG_UNATE,
-            'non_unate': EnumTimingSense.NON_UNATE
+            'neg_unate': EnumTimingSense.NEG_UNATE,
+            'non_unate': EnumTimingSense.NON_UNATE,
+            'unknown': None,
         }
-        assert value.lower() in mapping, f"Unknown arc type: {value}"
-        return mapping.get(value.lower())
+        key = value.lower()
+        assert key in mapping, f"Unknown arc type: {value}"
+        return mapping.get(key)
 
 ALL_TIMING_SENSES = [EnumTimingSense.POS_UNATE, EnumTimingSense.NEG_UNATE]
 
